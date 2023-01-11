@@ -144,7 +144,7 @@ void NextionReceived(String* nextion_string)
             delay(100);
         }
     }
-    for(MySerial2.available() > 0){
+    while(MySerial2.available() > 0){
         MySerial2.read();
     }
 }
