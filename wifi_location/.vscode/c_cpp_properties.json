@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "Arduino",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Users/teamh/AppData/Local/Arduino15/packages/esp32/tools/riscv32-esp-elf-gcc/gcc8_4_0-esp-2021r2-patch3/riscv32-esp-elf/include/sys/**",
+                "C:/Users/teamh/AppData/Local/Arduino15/packages/esp32/hardware/esp32/2.0.4/tools/sdk/esp32/include/**",
+                "C:/Users/teamh/AppData/Local/Arduino15/packages/esp32/hardware/esp32/2.0.4/cores/esp32/**",
+                "C:/Users/teamh/AppData/local/Arduino15/packages/esp32/hardware/esp32/2.0.4/libraries/**",
+                "C:/Users/teamh/OneDrive/문서/Arduino/libraries/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}
