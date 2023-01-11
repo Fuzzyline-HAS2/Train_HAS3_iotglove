@@ -95,9 +95,18 @@ void DataChange()
         if((String)(const char *)my["device_state"] == "activate"){
             cmd = "start.player_name.val=" + (String)(const char*)my["player_name"];
             sendCommand(cmd.c_str());
-            sendCommand("sleep=0");
-            sendCommand("dims=100");
             DisplaySet();
+            if((String)(const char*)my["role"] == "player"){
+                sendCommand("page player");
+                pixels.lightColor(green);
+            } 
+            else if((String)(const char*)my["role"] == "tagger"){
+                if(neopixel_timer.isEnabled(neopixel_timer_id)){
+                    neopixel_timer.deleteTimer(neopixel_timer_id) ;
+                }
+                sendCommand("page tagger");
+                pixels.lightColor(purple);
+            }
         }
         else if((String)(const char *)my["device_state"] == "player_win"){
             sendCommand("page win_lose");
