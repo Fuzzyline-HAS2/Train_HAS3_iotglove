@@ -38,12 +38,12 @@ void DisplaySet()
         sendCommand(cmd.c_str());
 
         // TakenChip 초기화
-        if((int)my["taken_chip"] > 1){
-            cmd = "tagger.TakenChip.pic=taken_chip_pic.val+1";
+        if((int)my["taken_chip"] > 0){
+            cmd = "tagger.TakenChip.pic=tagger.taken_chip_pic.val+1";
             sendCommand(cmd.c_str());
         }
         else{
-            cmd = "tagger.TakenChip.pic=taken_chip_pic.val";
+            cmd = "tagger.TakenChip.pic=tagger.taken_chip_pic.val";
             sendCommand(cmd.c_str());
         }
 
@@ -93,34 +93,33 @@ void NextionReceived(String* nextion_string)
         }
         else if((String)(const char*)my["role"] == "player"){
             sendCommand("page player");
-        }
-        if(!ir_receive_timer.isEnabled(ir_receive_timer_id)){
-            ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
+            ir_receive_timer.enable(ir_receive_timer_id);
         }
     }
     else if(*nextion_string == "hacking"){
         //TODO hacking 시리얼을 hacking 시작과 동시에 보냄
-        hacking_timer.deleteTimer(hacking_timer_id);
-        ir_receive_timer.deleteTimer(ir_receive_timer_id);
+        hacking = true;
+        ir_receive_timer.disable(ir_receive_timer_id);
     }
     else if(*nextion_string == "die"){
-        hacking_state = false;
+        hacking = false;
         has2wifi.Send((const char *)my["tagger_name"], "taken_chip", "+1");
         has2wifi.Send((const char *)my["tagger_name"], "exp", "+100");
         has2wifi.Send((const char *)my["device_name"], "life_chip", "-1");
-
-        hacking = false;
-        if(!ir_receive_timer.isEnabled(ir_receive_timer_id)){
-            ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
+        
+        if((int)my["life_chip"] > 1){
+            has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+        }
+        else if((int)my["life_chip"] == 1){
+            has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
         }
     }
     else if(*nextion_string == "revival"){   // revival 종료
-        if(!ir_receive_timer.isEnabled(ir_receive_timer_id)){
-            ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
-        }
+        has2wifi.Send((String)(const char*)my["device_name"], "exp", "+45");
         has2wifi.Send((String)(const char*)my["device_name"], "role", "player");
         pixels.lightColor(green);
         revival = false;
+        ir_receive_timer.enable(ir_receive_timer_id);
     }
     else if(*nextion_string == "messege_exit"){
         has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");

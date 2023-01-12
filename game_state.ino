@@ -7,8 +7,12 @@ void SettingFunc()
 {
     game_state = setting;
 
+    motor_on = false;
     MotorStop();
-    neopixel_timer.deleteTimer(neopixel_timer_id);
+    if(neopixel_timer.isEnabled(neopixel_timer_id)){
+        neopixel_timer.deleteTimer(neopixel_timer_id);
+    }
+    ir_receive_timer.disable(ir_receive_timer_id);
     pixels.lightColor(white);
     ledcWrite(5, 0);
 
@@ -26,8 +30,12 @@ void ReadyFunc()
 {
     game_state = ready;
 
+    motor_on = false;
     MotorStop();
-    neopixel_timer.deleteTimer(neopixel_timer_id);
+    if(neopixel_timer.isEnabled(neopixel_timer_id)){
+        neopixel_timer.deleteTimer(neopixel_timer_id);
+    }
+    ir_receive_timer.disable(ir_receive_timer_id);
     sendCommand("sleep=0");
     sendCommand("page before_tagger");
     pixels.lightColor(red);
@@ -41,8 +49,16 @@ void ActivateFunc()
     // 디스플레이 변경 체크
     DisplayCheck();
 
+    // 진동모터
+    if(motor_on && ((String)(const char*)my["role"] != "tagger" || (String)(const char*)my["role"] != "neutral")){
+        MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
+    }
+    else{
+        MotorStop();
+    }
+
     // 술래는 지속적으로 IR 송신
-    if((String)(const char *)my["role"] == "tagger" && (int)my["taken_chip"] < (int)my["max_taken_chip"]) { IrSend(); }
+    if((String)(const char *)my["role"] == "tagger" && (int)my["taken_chip"] < (int)my["max_taken_chip"] && (String)(const char *)my["device_state"] == "activate") { IrSend(); }
     
     // 가장 가까운 와이파이 위치 정보를 Beetle을 통해 받음
     if (MySerial1.available()){
@@ -66,6 +82,11 @@ void ActivateRunOnce()
 {
     game_state = activate;
     ledcWrite(5, 0);
+
+    if((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost"){
+        ir_receive_timer.enable(ir_receive_timer_id);
+    }
+    DisplaySet();
 }
 
 /**
@@ -95,20 +116,36 @@ void DataChange()
         if((String)(const char *)my["device_state"] == "activate"){
             cmd = "start.player_name.val=" + (String)(const char*)my["player_name"];
             sendCommand(cmd.c_str());
-            DisplaySet();
+            cmd = "revival.revival_time.val=" + (String)(const char*)my["revival_time"];
+            sendCommand(cmd.c_str());
+            sendCommand("sleep=0");
             if((String)(const char*)my["role"] == "player"){
                 sendCommand("page player");
                 pixels.lightColor(green);
+                ir_receive_timer.enable(ir_receive_timer_id);
             } 
             else if((String)(const char*)my["role"] == "tagger"){
                 if(neopixel_timer.isEnabled(neopixel_timer_id)){
                     neopixel_timer.deleteTimer(neopixel_timer_id) ;
                 }
+                ir_receive_timer.disable(ir_receive_timer_id);
                 sendCommand("page tagger");
                 pixels.lightColor(purple);
             }
+            else if((String)(const char *)my["role"] == "revival"){
+                ir_receive_timer.disable(ir_receive_timer_id);
+                sendCommand("page revival");
+                pixels.lightColor(yellow);
+                revival = true;
+            }
+            else if((String)(const char *)my["role"] == "ghost"){
+                sendCommand("page ghost");
+                pixels.lightColor(blue);
+                ir_receive_timer.enable(ir_receive_timer_id);
+            }
         }
         else if((String)(const char *)my["device_state"] == "player_win"){
+            MotorStop();
             sendCommand("page win_lose");
             if((String)(const char*)my["role"] == "player"){
                 cmd = "WinLose.pic=win_lose_pic.val"; // 생존자 승리
@@ -120,6 +157,7 @@ void DataChange()
             }
         }
         else if((String)(const char *)my["device_state"] == "player_lose"){
+            MotorStop();
             sendCommand("page win_lose");
             if((String)(const char*)my["role"] == "player"){
                 cmd = "WinLose.pic=win_lose_pic.val+1"; // 생존자 패배
@@ -133,17 +171,16 @@ void DataChange()
         
         else if((String)(const char*)my["role"] == "tagger" && (String)(const char*)my["device_state"] == "blink"){
             if(!neopixel_timer.isEnabled(neopixel_timer_id)){
-                neopixel_timer_id = neopixel_timer.setInterval(800, tagger_blink);
+                neopixel_timer_id = neopixel_timer.setInterval(400, tagger_blink);
             }
             sendCommand("sleep=0");
-            sendCommand("dims=100");
-            DisplaySet();
             sendCommand("page tagger");
         }
         
         else if((String)(const char*)my["device_state"] == "photo"){
             game_state = setting;
             MotorStop();
+            sendCommand("sleep=0");
             if((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost"){
                 sendCommand("page player");
                 pixels.lightColor(green);
@@ -157,22 +194,9 @@ void DataChange()
 
     // role에 변화가 있을 시
     if((String)(const char *)my["role"] != (String)(const char *)cur["role"]){
-    if(game_state == activate){
-        if((String)(const char*)my["role"] == "player"){
-                sendCommand("page player");
-                pixels.lightColor(green);
-            } 
-            else if((String)(const char*)my["role"] == "tagger"){
-                if(neopixel_timer.isEnabled(neopixel_timer_id)){
-                    neopixel_timer.deleteTimer(neopixel_timer_id) ;
-                }
-                sendCommand("page tagger");
-                pixels.lightColor(purple);
-            }
+        if(game_state == activate){
             if((String)(const char *)my["role"] == "revival"){
-                if(ir_receive_timer.isEnabled(ir_receive_timer_id)){
-                    ir_receive_timer.deleteTimer(ir_receive_timer_id);
-                }
+                ir_receive_timer.disable(ir_receive_timer_id);
                 sendCommand("page revival");
                 pixels.lightColor(yellow);
                 revival = true;
@@ -180,11 +204,12 @@ void DataChange()
             else if((String)(const char *)my["role"] == "ghost"){
                 sendCommand("page ghost");
                 pixels.lightColor(blue);
+                ir_receive_timer.enable(ir_receive_timer_id);
             }
         }
     }
 
-    // life_chip에 변화가 있을 시
+    // life_chip에 변화가 있을 시 
     if((int)my["life_chip"] != (int)cur["life_chip"]){
         cmd = "player.life_chip.val=" + (String)(const char*)my["life_chip"];
         sendCommand(cmd.c_str());
@@ -192,21 +217,12 @@ void DataChange()
             cmd = "player.LifeChip.pic=player.life_chip_pic.val";
             sendCommand(cmd.c_str());
             if((String)(const char*)my["role"] == "ghost"){
-                has2wifi.Send((String)(const char*)my["device_name"], "role", "revival"); 
-            }
-            if((int)my["life_chip"] < (int)cur["life_chip"]){
                 has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
             }
         }
         else if((int)my["life_chip"] > 1){
             cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
             sendCommand(cmd.c_str());
-            if((int)my["life_chip"] < (int)cur["life_chip"]){
-                has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
-            }
-        }
-        else if((int)my["life_chip"] < 1){
-            has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
         }
     }
 
@@ -264,15 +280,22 @@ void DataChange()
     }
 
     if((String)(const char*)my["message_sender"] != (String)(const char*)cur["message_sender"]){
-        if((String)(const char*)my["message_sender"] == "no") { Serial.println("return"); return ;}
-        if((String)(const char*)my["role"] != "tagger" && ((String)(const char*)my["game_state"] == "activate")){
-            if(((String)(const char*)my["message_sender"] != (String)(const char*)my["player_name"]) && !revival){
+        if((String)(const char*)my["message_sender"] == "no") { return ;}
+        if(((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost") && ((String)(const char*)my["game_state"] == "activate")){
+            if(((String)(const char*)my["message_sender"] != (String)(const char*)my["player_name"]) && !revival && !hacking){
+                if(revival || hacking){
+                    has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
+                    return ;
+                }
                 sendCommand("page msg_receive");
                 cmd = "sender.pic=sender_pic.val+" + (String)(const char*)my["message_sender"];
                 sendCommand(cmd.c_str());
                 cmd = "code.pic=code_pic.val+" + (String)(const char*)my["message_code"];
                 sendCommand(cmd.c_str());
             }
+        }
+        else{
+            has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
         }
     }
 
