@@ -6,7 +6,7 @@ void TimerInit()
 {
   ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
   ir_receive_timer.disable(ir_receive_timer_id);
-  wifi_timer_id = wifi_timer.setInterval(200, WifiTimerFunc);
+  wifi_timer_id = wifi_timer.setInterval(500, WifiTimerFunc);
 }
 
 /**
@@ -23,7 +23,7 @@ void TimerRun()
 void HackingTimerFunc()
 {
   hacking_state = false;
-  sendCommand("page player");
+  PageChange("player");
 }
 
 void WifiTimerFunc()
@@ -33,5 +33,5 @@ void WifiTimerFunc()
 
 void PlayerIrSendTimerFunc()
 {
-  sendCommand("page player");
+  PageChange("player");
 }

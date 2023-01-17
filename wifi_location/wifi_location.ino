@@ -16,6 +16,9 @@
 
 HardwareSerial MySerial1(1);    // TTGO
 
+typedef enum GameState {setting, ready, activate};
+GameState game_state = setting;
+
 String cur_wifi_name;
 String first_wifi_name;
 bool send_ttgo;
@@ -35,6 +38,8 @@ void setup()
     pinMode(10,OUTPUT);
     digitalWrite(10,LOW);
     Serial.println("Setup done");
+    
+     MySerial1.print("reset ");
 }
 
 void loop()
@@ -45,9 +50,33 @@ void loop()
     int cur_rssi = -100;
 
     if(MySerial1.available() > 0){
+        String serial1_data = MySerial1.readStringUntil(' ');
+        Serial.println(serial1_data);
 
+        if(serial1_data == "activate"){
+            game_state = activate;
+        }
+        else if(serial1_data == "setting"){
+            game_state = setting;
+        }
+        else if(serial1_data == "ready"){
+            game_state = ready;
+        }
+
+        while(MySerial1.available() > 0){
+            MySerial1.read();
+        }
     }
-    FirstRssi(n);
+    
+    if(game_state == activate){
+        FirstRssi(n);
+    }
+    else{
+        send_ttgo = false;
+        loop_num = 0;
+        cur_wifi_name = first_wifi_name;
+    }
+    
 }
 
 void FirstRssi(int scan_network)

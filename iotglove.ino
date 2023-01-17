@@ -3,7 +3,7 @@
  * @author YuBin Kim
  * @brief HAS2_iotglove
  * @version 2.1
- * @date 2022-11-16 ~ 2023-01-09
+ * @date 2022-11-16 ~ 2023-01-17
  *
  * @copyright Copyright (c) 2022
  *
@@ -43,6 +43,26 @@ void setup()
 void loop()
 {
   TimerRun();
+
+  // 가장 가까운 와이파이 위치 정보를 Beetle을 통해 받음
+  if (MySerial1.available()){
+    wifi_name = MySerial1.readStringUntil(' ');
+    Serial.println(wifi_name);
+    if(wifi_name == "reset"){
+      MySerial1.print((String)(const char*)my["device_state"] + " ");
+    }
+    if(game_state == activate){
+      if(wifi_name.startsWith("HAS2")){
+        has2wifi.Send((String)(const char*)my["device_name"], "location", wifi_name);
+      }
+      else{
+        MySerial1.read();
+      }
+    }
+    while (MySerial1.available() > 0){
+      MySerial1.read();
+    }
+  }
 
   switch (game_state) {
   case activate:

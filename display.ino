@@ -79,9 +79,9 @@ void NextionReceived(String* nextion_string)
     if(*nextion_string == "lifesend"){
         //TODO 타이머 사용하여 IR 송신하게 
         IrSend();
-        sendCommand("page lifechip_send");
-        delay(3000);
-        sendCommand("page player");
+        PageChange("lifechip_send");
+        delay(5000);
+        PageChange("player");
     }
     else if(*nextion_string == "lifechip_receive"){
         //TODO 디스플레이에서 5초 타이머 or x 터치를 통해 lifechip_receive 전송
@@ -92,7 +92,7 @@ void NextionReceived(String* nextion_string)
             has2wifi.Send((const char *)tag["device_name"], "exp", "+100");
         }
         else if((String)(const char*)my["role"] == "player"){
-            sendCommand("page player");
+            PageChange("player");
             ir_receive_timer.enable(ir_receive_timer_id);
         }
     }
@@ -120,14 +120,15 @@ void NextionReceived(String* nextion_string)
         pixels.lightColor(green);
         revival = false;
         ir_receive_timer.enable(ir_receive_timer_id);
+        PageChange("player");
     }
     else if(*nextion_string == "messege_exit"){
         has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
         if((String)(const char*)my["role"] == "player"){
-            sendCommand("page player");
+            PageChange("player");
         }
         else if((String)(const char*)my["role"] == "ghost"){
-            sendCommand("page ghost");
+            PageChange("ghost");
         }
     }
 
@@ -138,11 +139,17 @@ void NextionReceived(String* nextion_string)
         String group = message_sender.substring(0, 2);
         for (int i = 1; i < 9; ++i){
             String player_name = group + "P" + String(i);
-            has2wifi.Send(player_name, "message_sender", (String)(const char*)my["player_name"]);
-            has2wifi.Send(player_name, "message_code", message_code);
-            delay(100);
+            if(player_name == (String)(const char*)my["player_name"]){
+                has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
+            }
+            else if(player_name != (String)(const char*)my["player_name"]){
+                has2wifi.Send(player_name, "message_sender", (String)(const char*)my["player_name"]);
+                has2wifi.Send(player_name, "message_code", message_code);
+                delay(100);
+            }
         }
     }
+    
     while(MySerial2.available() > 0){
         MySerial2.read();
     }

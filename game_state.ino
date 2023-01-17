@@ -6,6 +6,7 @@
 void SettingFunc()
 {
     game_state = setting;
+    MySerial1.print("setting ");
 
     motor_on = false;
     MotorStop();
@@ -18,7 +19,7 @@ void SettingFunc()
 
     BatteryCheck();
     
-    sendCommand("page 0");
+    PageChange("0");
     sendCommand("sleep=1");
 }
 
@@ -29,6 +30,7 @@ void SettingFunc()
 void ReadyFunc()
 {
     game_state = ready;
+    MySerial1.print("ready ");
 
     motor_on = false;
     MotorStop();
@@ -37,7 +39,7 @@ void ReadyFunc()
     }
     ir_receive_timer.disable(ir_receive_timer_id);
     sendCommand("sleep=0");
-    sendCommand("page before_tagger");
+    PageChange("before_tagger");
     pixels.lightColor(red);
 }
 
@@ -59,20 +61,6 @@ void ActivateFunc()
 
     // 술래는 지속적으로 IR 송신
     if((String)(const char *)my["role"] == "tagger" && (int)my["taken_chip"] < (int)my["max_taken_chip"] && (String)(const char *)my["device_state"] == "activate") { IrSend(); }
-    
-    // 가장 가까운 와이파이 위치 정보를 Beetle을 통해 받음
-    if (MySerial1.available()){
-        if(game_state == activate){
-            wifi_name = MySerial1.readStringUntil(' ');
-            if(wifi_name.startsWith("HAS2")){
-                Serial.println(wifi_name);
-                has2wifi.Send((String)(const char*)my["device_name"], "location", wifi_name);
-            }
-        }
-        else{
-            MySerial1.read();
-        }
-    }
 }
 
 /**
@@ -81,12 +69,16 @@ void ActivateFunc()
 void ActivateRunOnce()
 {
     game_state = activate;
+
+    MySerial1.print("activate ");
     ledcWrite(5, 0);
 
     if((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost"){
         ir_receive_timer.enable(ir_receive_timer_id);
     }
     DisplaySet();
+    String cmd = "revival.revival_time.val=" + (String)(const char*)my["revival_time"];
+    sendCommand(cmd.c_str());
 }
 
 /**
@@ -116,11 +108,9 @@ void DataChange()
         if((String)(const char *)my["device_state"] == "activate"){
             cmd = "start.player_name.val=" + (String)(const char*)my["player_name"];
             sendCommand(cmd.c_str());
-            cmd = "revival.revival_time.val=" + (String)(const char*)my["revival_time"];
-            sendCommand(cmd.c_str());
             sendCommand("sleep=0");
             if((String)(const char*)my["role"] == "player"){
-                sendCommand("page player");
+                PageChange("player");
                 pixels.lightColor(green);
                 ir_receive_timer.enable(ir_receive_timer_id);
             } 
@@ -129,24 +119,24 @@ void DataChange()
                     neopixel_timer.deleteTimer(neopixel_timer_id) ;
                 }
                 ir_receive_timer.disable(ir_receive_timer_id);
-                sendCommand("page tagger");
+                PageChange("tagger");
                 pixels.lightColor(purple);
             }
             else if((String)(const char *)my["role"] == "revival"){
                 ir_receive_timer.disable(ir_receive_timer_id);
-                sendCommand("page revival");
+                PageChange("revival");
                 pixels.lightColor(yellow);
                 revival = true;
             }
             else if((String)(const char *)my["role"] == "ghost"){
-                sendCommand("page ghost");
+                PageChange("ghost");
                 pixels.lightColor(blue);
                 ir_receive_timer.enable(ir_receive_timer_id);
             }
         }
         else if((String)(const char *)my["device_state"] == "player_win"){
             MotorStop();
-            sendCommand("page win_lose");
+            PageChange("win_lose");
             if((String)(const char*)my["role"] == "player"){
                 cmd = "WinLose.pic=win_lose_pic.val"; // 생존자 승리
                 sendCommand(cmd.c_str());
@@ -158,7 +148,7 @@ void DataChange()
         }
         else if((String)(const char *)my["device_state"] == "player_lose"){
             MotorStop();
-            sendCommand("page win_lose");
+            PageChange("win_lose");
             if((String)(const char*)my["role"] == "player"){
                 cmd = "WinLose.pic=win_lose_pic.val+1"; // 생존자 패배
                 sendCommand(cmd.c_str());
@@ -174,19 +164,20 @@ void DataChange()
                 neopixel_timer_id = neopixel_timer.setInterval(400, tagger_blink);
             }
             sendCommand("sleep=0");
-            sendCommand("page tagger");
+            PageChange("tagger");
         }
         
         else if((String)(const char*)my["device_state"] == "photo"){
             game_state = setting;
+            MySerial1.print("setting ");
             MotorStop();
             sendCommand("sleep=0");
             if((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost"){
-                sendCommand("page player");
+                PageChange("player");
                 pixels.lightColor(green);
             }
             else if((String)(const char*)my["role"] == "tagger"){
-                sendCommand("page tagger");
+                PageChange("tagger");
                 pixels.lightColor(purple);
             }
         }
@@ -197,12 +188,12 @@ void DataChange()
         if(game_state == activate){
             if((String)(const char *)my["role"] == "revival"){
                 ir_receive_timer.disable(ir_receive_timer_id);
-                sendCommand("page revival");
+                PageChange("revival");
                 pixels.lightColor(yellow);
                 revival = true;
             }
             else if((String)(const char *)my["role"] == "ghost"){
-                sendCommand("page ghost");
+                PageChange("ghost");
                 pixels.lightColor(blue);
                 ir_receive_timer.enable(ir_receive_timer_id);
             }
@@ -210,7 +201,7 @@ void DataChange()
     }
 
     // life_chip에 변화가 있을 시 
-    if((int)my["life_chip"] != (int)cur["life_chip"]){
+    // if((int)my["life_chip"] != (int)cur["life_chip"]){
         cmd = "player.life_chip.val=" + (String)(const char*)my["life_chip"];
         sendCommand(cmd.c_str());
         if((int)my["life_chip"] == 1){
@@ -224,10 +215,10 @@ void DataChange()
             cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
             sendCommand(cmd.c_str());
         }
-    }
+    // }
 
     // taken_chip에 변화가 있을 시
-    if((int)my["taken_chip"] != (int)cur["taken_chip"]){
+    // if((int)my["taken_chip"] != (int)cur["taken_chip"]){
         cmd = "tagger.taken_chip.val=" + (String)(const char*)my["taken_chip"];
         sendCommand(cmd.c_str());
         if((int)my["taken_chip"] == 0){
@@ -238,13 +229,13 @@ void DataChange()
             cmd = "tagger.TakenChip.pic=taken_chip_pic.val+1";
             sendCommand(cmd.c_str());
         }
-    }
+    //}
 
     // battery_pack에 변화가 있을 시
-    if((int)my["battery_pack"] != (int)cur["battery_pack"]){
+    //if((int)my["battery_pack"] != (int)cur["battery_pack"]){
         cmd = "player.BatteryPack.pic=player.battery_pic.val+" + (String)(const char*)my["battery_pack"];
         sendCommand(cmd.c_str());
-    }
+    //}
 
     // exp에 변화가 있을 시
     if((int)my["exp"] != (int)cur["exp"]){
@@ -264,6 +255,7 @@ void DataChange()
         }
     }
 
+    // vibe에 변화가 있을 시
     if((int)my["vibe"] != (int)cur["vibe"]){
         if((String)(const char*)my["role"] != "tagger" && (String)(const char*)my["game_state"] == "activate"){
             if((int)my["vibe"] == 2){
@@ -287,7 +279,7 @@ void DataChange()
                     has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
                     return ;
                 }
-                sendCommand("page msg_receive");
+                PageChange("msg_receive");
                 cmd = "sender.pic=sender_pic.val+" + (String)(const char*)my["message_sender"];
                 sendCommand(cmd.c_str());
                 cmd = "code.pic=code_pic.val+" + (String)(const char*)my["message_code"];

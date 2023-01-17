@@ -72,7 +72,6 @@ void IrSend()
  */
 void IrReceive()
 {   
-    Serial.println("IR 함수 동작");
     if (irrecv.decode(&results))
     {  
         // 0. IR 수신데이터 해석
@@ -93,17 +92,16 @@ void IrReceive()
                 if((String)(const char *)tag["role"] == "tagger"){
                     if((String)(const char*)my["role"] == "player"){
                         ir_receive_timer.disable(ir_receive_timer_id);
-                        sendCommand("page hacking");
+                        PageChange("hacking");
                     }
                 }
                 if((String)(const char *)tag["role"] == "player"){
                     ir_receive_timer.disable(ir_receive_timer_id);
-                    sendCommand("page lifechip_rece");
+                    PageChange("lifechip_rece");
                 }
             }
         }
     }
-
     irrecv.resume();
 }
 
@@ -225,7 +223,6 @@ void MotorOn(const int* vibration_pattern, int len)
 
 void MotorStop()
 {
-    Serial.println("모터 스탑");
     digitalWrite(MOTOR_INA1_PIN, LOW);
     digitalWrite(MOTOR_INA2_PIN, LOW);
 }
