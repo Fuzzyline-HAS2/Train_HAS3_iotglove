@@ -66,6 +66,10 @@ void DisplayCheck()
         String nextion_string = MySerial2.readStringUntil(' ');
         Serial.print("Nextion String : "); Serial.println(nextion_string);
         NextionReceived(&nextion_string);
+        while (MySerial2.available() > 0){
+            MySerial2.read();
+        }
+        
     }
 }
 
@@ -90,7 +94,7 @@ void NextionReceived(String* nextion_string)
 
         if((String)(const char*)my["role"] == "ghost"){
             has2wifi.Send((const char *)tag["device_name"], "exp", "+100");
-
+            has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
         }
         else if((String)(const char*)my["role"] == "player"){
             PageChange("player");
@@ -124,13 +128,15 @@ void NextionReceived(String* nextion_string)
         PageChange("player");
     }
     else if(*nextion_string == "messege_exit"){
-        has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
         if((String)(const char*)my["role"] == "player"){
             PageChange("player");
         }
         else if((String)(const char*)my["role"] == "ghost"){
+            Serial.println("messege ghost");
             PageChange("ghost");
         }
+
+        has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
     }
 
     //BUG 한사람당 한번만 보낼 수 있는 버그 수정 필요
