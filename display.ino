@@ -90,6 +90,7 @@ void NextionReceived(String* nextion_string)
 
         if((String)(const char*)my["role"] == "ghost"){
             has2wifi.Send((const char *)tag["device_name"], "exp", "+100");
+
         }
         else if((String)(const char*)my["role"] == "player"){
             PageChange("player");

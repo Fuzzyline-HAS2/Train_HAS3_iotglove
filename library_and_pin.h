@@ -10,8 +10,6 @@
 #include <NexHardware.h>             // 디스플레이 관련 라이브러리
 #include <Pangodream_18650_CL.h> // 배터리 체크 관련 라이브러리
 
-#include <HAS2_Wifi.h>
-
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
