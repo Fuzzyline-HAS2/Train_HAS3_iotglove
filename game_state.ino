@@ -201,7 +201,7 @@ void DataChange()
     }
 
     // life_chip에 변화가 있을 시 
-    // if((int)my["life_chip"] != (int)cur["life_chip"]){
+    if((int)my["life_chip"] != (int)cur["life_chip"]){
         cmd = "player.life_chip.val=" + (String)(const char*)my["life_chip"];
         sendCommand(cmd.c_str());
         if((int)my["life_chip"] == 1){
@@ -215,10 +215,13 @@ void DataChange()
             cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
             sendCommand(cmd.c_str());
         }
-    // }
+        else if((int)my["life_chip"] < 1){
+            has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
+        }
+    }
 
     // taken_chip에 변화가 있을 시
-    // if((int)my["taken_chip"] != (int)cur["taken_chip"]){
+    if((int)my["taken_chip"] != (int)cur["taken_chip"]){
         cmd = "tagger.taken_chip.val=" + (String)(const char*)my["taken_chip"];
         sendCommand(cmd.c_str());
         if((int)my["taken_chip"] == 0){
@@ -229,13 +232,13 @@ void DataChange()
             cmd = "tagger.TakenChip.pic=taken_chip_pic.val+1";
             sendCommand(cmd.c_str());
         }
-    //}
+    }
 
     // battery_pack에 변화가 있을 시
-    //if((int)my["battery_pack"] != (int)cur["battery_pack"]){
+    if((int)my["battery_pack"] != (int)cur["battery_pack"]){
         cmd = "player.BatteryPack.pic=player.battery_pic.val+" + (String)(const char*)my["battery_pack"];
         sendCommand(cmd.c_str());
-    //}
+    }
 
     // exp에 변화가 있을 시
     if((int)my["exp"] != (int)cur["exp"]){
