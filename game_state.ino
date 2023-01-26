@@ -202,21 +202,32 @@ void DataChange()
 
     // life_chip에 변화가 있을 시 
     if((int)my["life_chip"] != (int)cur["life_chip"]){
-        cmd = "player.life_chip.val=" + (String)(const char*)my["life_chip"];
-        sendCommand(cmd.c_str());
-        if((int)my["life_chip"] == 1){
-            cmd = "player.LifeChip.pic=player.life_chip_pic.val";
-            sendCommand(cmd.c_str());
-            if((String)(const char*)my["role"] == "ghost"){
-                has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+        if((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost" || (String)(const char*)my["role"] == "revival"){
+            if((int)my["life_chip"] == 1){
+                cmd = "player.LifeChip.pic=player.life_chip_pic.val";
+                sendCommand(cmd.c_str());
+                if((String)(const char*)my["role"] == "ghost"){
+                    has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+                }
+                if((int)cur["life_chip"] > (int)my["life_chip"]){
+                    has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+                }
             }
-        }
-        else if((int)my["life_chip"] > 1){
-            cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
+            else if((int)my["life_chip"] > 1){
+                cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
+                sendCommand(cmd.c_str());
+                if((int)cur["life_chip"] > (int)my["life_chip"]){
+                    has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+                }
+            }
+            else if((int)my["life_chip"] < 1){
+                has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
+                Serial.println("send ghost ");
+            }
+
+            cmd = "player.life_chip.val=" + (String)(const char*)my["life_chip"];
             sendCommand(cmd.c_str());
-        }
-        else if((int)my["life_chip"] < 1){
-            has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
+            
         }
     }
 
