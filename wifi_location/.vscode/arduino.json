@@ -3,5 +3,5 @@
     "sketch": "wifi_location.ino",
     "configuration": "CDCOnBoot=cdc,PartitionScheme=default,CPUFreq=160,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=none",
     "board": "esp32:esp32:dfrobot_beetle_esp32c3",
-    "port": "COM31"
+    "port": "COM52"
 }

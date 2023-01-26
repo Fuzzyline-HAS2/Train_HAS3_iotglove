@@ -76,26 +76,21 @@ void IrReceive()
     {  
         // 0. IR 수신데이터 해석
         String ir_decode_data = IrDecoding((uint32_t)results.value);
-        static String cur_ir_decode_data = "";
-
         if ((!ir_receive_error) && (ir_decode_data != "error")){
             Serial.println("IR 수신중");
             Serial.println(ir_decode_data);
             // 1. IR 수신데이터[플레이어 정보]를 DB에서 읽어와서 술래인지, 플레이어인지 확인
-            if(ir_decode_data != cur_ir_decode_data){
-                has2wifi.Receive(ir_decode_data);
-                cur_ir_decode_data = ir_decode_data;
-            }
+            has2wifi.Receive(ir_decode_data);
             // 2. 플레이어이면 조건에 맞다면 DB에서 2명의 플레이어 생명칩 개수 수정 & 술래이면 해킹 페이지로 전환
             // 자신의 IR이 찍히면 인식 X
             if ((String)(const char *)tag["device_name"] != (String)(const char *)my["device_name"]){ 
                 if((String)(const char *)tag["role"] == "tagger"){
-                    if((String)(const char*)my["role"] == "player"){
+                    if((String)(const char*)my["role"] == "player" && (String)(const char*)tag["device_state"] == "activate"){
                         ir_receive_timer.disable(ir_receive_timer_id);
                         PageChange("hacking");
                     }
                 }
-                if((String)(const char *)tag["role"] == "player"){
+                if((String)(const char *)tag["role"] == "player" && ((int)my["life_chip"] < (int)my["max_life_chip"])){
                     ir_receive_timer.disable(ir_receive_timer_id);
                     PageChange("lifechip_rece");
                 }

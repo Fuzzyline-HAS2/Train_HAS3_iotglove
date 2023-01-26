@@ -64,12 +64,14 @@ void DisplayCheck()
 { 
     if(MySerial2.available() > 0){
         String nextion_string = MySerial2.readStringUntil(' ');
-        Serial.print("Nextion String : "); Serial.println(nextion_string);
-        NextionReceived(&nextion_string);
+        if(nextion_string.startsWith("H_")){
+            nextion_string = nextion_string.substring(2);
+            Serial.print("Nextion String : "); Serial.println(nextion_string);
+            NextionReceived(&nextion_string);
+        }
         while (MySerial2.available() > 0){
             MySerial2.read();
         }
-        
     }
 }
 
@@ -93,7 +95,7 @@ void NextionReceived(String* nextion_string)
         has2wifi.Send((const char *)my["device_name"], "life_chip", "+1");
 
         if((String)(const char*)my["role"] == "ghost"){
-            has2wifi.Send((const char *)tag["device_name"], "exp", "+100");
+            has2wifi.Send((const char *)tag["device_name"], "exp", "+100"); 
             has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
         }
         else if((String)(const char*)my["role"] == "player"){
@@ -108,16 +110,9 @@ void NextionReceived(String* nextion_string)
     }
     else if(*nextion_string == "die"){
         hacking = false;
-        has2wifi.Send((const char *)my["tagger_name"], "taken_chip", "+1");
-        has2wifi.Send((const char *)my["tagger_name"], "exp", "+100");
-        has2wifi.Send((const char *)my["device_name"], "life_chip", "-1");
-        
-        if((int)my["life_chip"] > 1){
-            has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
-        }
-        else if((int)my["life_chip"] == 1){
-            has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
-        }
+        has2wifi.Send((String)(const char*)my["tagger_name"], "taken_chip", "+1");
+        has2wifi.Send((String)(const char*)my["tagger_name"], "exp", "+100");
+        has2wifi.Send((String)(const char*)my["device_name"], "life_chip", "-1");
     }
     else if(*nextion_string == "revival"){   // revival 종료
         has2wifi.Send((String)(const char*)my["device_name"], "exp", "+45");
@@ -145,20 +140,15 @@ void NextionReceived(String* nextion_string)
         String message_sender = (String)(const char *)my["device_name"];
         String group = message_sender.substring(0, 2);
         for (int i = 1; i < 9; ++i){
-            String player_name = group + "P" + String(i);
-            if(player_name == (String)(const char*)my["player_name"]){
+            String receive_player_name = group + "P" + String(i);
+            if(receive_player_name == (String)(const char*)my["device_name"]){
                 has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
             }
-            else if(player_name != (String)(const char*)my["player_name"]){
-                has2wifi.Send(player_name, "message_sender", (String)(const char*)my["player_name"]);
-                has2wifi.Send(player_name, "message_code", message_code);
-                delay(100);
+            else if(receive_player_name != (String)(const char*)my["device_name"]){
+                has2wifi.Send(receive_player_name, "message_sender", (String)(const char*)my["player_name"]);
+                has2wifi.Send(receive_player_name, "message_code", message_code);
             }
         }
-    }
-    
-    while(MySerial2.available() > 0){
-        MySerial2.read();
     }
 }
 
