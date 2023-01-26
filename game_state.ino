@@ -275,11 +275,12 @@ void DataChange()
     }
 
     if((String)(const char*)my["message_sender"] != (String)(const char*)cur["message_sender"]){
-        if((String)(const char*)my["message_sender"] == "no") { return ;}
+        if((String)(const char*)my["message_sender"] == "no") {cur = my; return ;}
         if(((String)(const char*)my["role"] == "player" || (String)(const char*)my["role"] == "ghost") && ((String)(const char*)my["game_state"] == "activate")){
             if(((String)(const char*)my["message_sender"] != (String)(const char*)my["player_name"]) && !revival && !hacking){
                 if(revival || hacking){
                     has2wifi.Send((String)(const char*)my["device_name"], "message_sender", "no");
+                    cur = my;
                     return ;
                 }
                 PageChange("msg_receive");
@@ -300,4 +301,9 @@ void DataChange()
     Serial.println("Data Change");
     
     cur = my;
+
+    if(display_change++ > 2){
+        display_change = 0;
+        DisplaySet();
+    }
 }
