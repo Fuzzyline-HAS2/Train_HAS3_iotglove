@@ -113,6 +113,11 @@ void NextionReceived(String* nextion_string)
         has2wifi.Send((String)(const char*)my["tagger_name"], "taken_chip", "+1");
         has2wifi.Send((String)(const char*)my["tagger_name"], "exp", "+100");
         has2wifi.Send((String)(const char*)my["device_name"], "life_chip", "-1");
+
+        if((int)my["life_chip"] > 1){
+            has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
+        }
+
     }
     else if(*nextion_string == "revival"){   // revival 종료
         has2wifi.Send((String)(const char*)my["device_name"], "exp", "+45");

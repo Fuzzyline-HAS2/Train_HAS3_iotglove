@@ -209,16 +209,10 @@ void DataChange()
                 if((String)(const char*)my["role"] == "ghost"){
                     has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
                 }
-                if((int)cur["life_chip"] > (int)my["life_chip"]){
-                    has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
-                }
             }
             else if((int)my["life_chip"] > 1){
                 cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
                 sendCommand(cmd.c_str());
-                if((int)cur["life_chip"] > (int)my["life_chip"]){
-                    has2wifi.Send((String)(const char*)my["device_name"], "role", "revival");
-                }
             }
             else if((int)my["life_chip"] < 1){
                 has2wifi.Send((String)(const char*)my["device_name"], "role", "ghost");
@@ -312,9 +306,4 @@ void DataChange()
     Serial.println("Data Change");
     
     cur = my;
-
-    if(display_change++ > 2){
-        display_change = 0;
-        DisplaySet();
-    }
 }
