@@ -237,3 +237,28 @@ void tagger_blink()
     }
 }
 
+//******************************************* Beetle ********************************************
+/**
+ * @brief 게임 내부 가장 가까이에 있는 와이파이 이름을 Beetle로부터 수신받음
+ */
+void BeetleScanWifi()
+{
+  if (MySerial1.available()){
+    wifi_name = MySerial1.readStringUntil(' ');
+    Serial.println(wifi_name);
+    if(wifi_name == "reset"){
+      MySerial1.print((String)(const char*)my["device_state"] + " ");
+    }
+    if(game_state == activate){
+      if(wifi_name.startsWith("HAS2")){
+        has2wifi.Send((String)(const char*)my["device_name"], "location", wifi_name);
+      }
+      else{
+        MySerial1.read();
+      }
+    }
+    while (MySerial1.available() > 0){
+      MySerial1.read();
+    }
+  }
+}

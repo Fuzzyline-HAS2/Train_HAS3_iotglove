@@ -69,9 +69,6 @@ void DisplayCheck()
             Serial.print("Nextion String : "); Serial.println(nextion_string);
             NextionReceived(&nextion_string);
         }
-        while (MySerial2.available() > 0){
-            MySerial2.read();
-        }
     }
 }
 

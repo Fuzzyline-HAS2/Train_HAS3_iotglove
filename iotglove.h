@@ -35,6 +35,9 @@ void PageChange(String page);
  */
 void SensorInit();
 
+//=============================== Beetle =================================
+void BeetleScanWifi();
+
 //================================ Wifi ==================================
 HAS2_Wifi has2wifi;
 
