@@ -2,7 +2,7 @@
  * @file iotglove.ino
  * @author YuBin Kim
  * @brief HAS2_iotglove
- * @version 2.2
+ * @version 0.0.0
  * @date 2023-01-31
  *
  * @copyright Copyright (c) 2022
