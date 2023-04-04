@@ -137,24 +137,24 @@ void DataChange()
         else if((String)(const char *)my["device_state"] == "player_win"){
             MotorStop();
             PageChange("win_lose");
-            if((String)(const char*)my["role"] == "player"){
-                cmd = "WinLose.pic=win_lose_pic.val"; // 생존자 승리
+            if((String)(const char*)my["role"] == "tagger"){
+                cmd = "WinLose.pic=win_lose_pic.val+3"; // 술래 패배
                 sendCommand(cmd.c_str());
             }
-            else if((String)(const char*)my["role"] == "tagger"){
-                cmd = "WinLose.pic=win_lose_pic.val+3"; // 술래 패배
+            else{
+                cmd = "WinLose.pic=win_lose_pic.val"; // 생존자 승리
                 sendCommand(cmd.c_str());
             }
         }
         else if((String)(const char *)my["device_state"] == "player_lose"){
             MotorStop();
             PageChange("win_lose");
-            if((String)(const char*)my["role"] == "player"){
-                cmd = "WinLose.pic=win_lose_pic.val+1"; // 생존자 패배
+             if((String)(const char*)my["role"] == "tagger"){
+                cmd = "WinLose.pic=win_lose_pic.val+2"; // 술래 승리
                 sendCommand(cmd.c_str());
             }
-            else if((String)(const char*)my["role"] == "tagger"){
-                cmd = "WinLose.pic=win_lose_pic.val+2"; // 술래 승리
+            else{
+                cmd = "WinLose.pic=win_lose_pic.val+1"; // 생존자 패배
                 sendCommand(cmd.c_str());
             }
         }
