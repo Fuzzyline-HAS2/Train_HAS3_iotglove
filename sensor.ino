@@ -75,10 +75,10 @@ void IrReceive()
   if (irrecv.decode(&results))
   {
     // 0. IR 수신데이터 해석
-    String ir_decode_data = IrDecoding((uint32_t)results.value);
+    ir_decode_data = IrDecoding((uint32_t)results.value);
     if ((!ir_receive_error) && (ir_decode_data != "error"))
     {
-      Serial.println("IR 수신중");
+      Serial.print("IR 데이터 : ");
       Serial.println(ir_decode_data);
       // 1. IR 수신데이터[플레이어 정보]를 DB에서 읽어와서 술래인지, 플레이어인지 확인
       has2wifi.Receive(ir_decode_data);
@@ -99,6 +99,7 @@ void IrReceive()
           if (((int)my["life_chip"] < (int)my["max_life_chip"]))
           {
             ir_receive_timer.disable(ir_receive_timer_id);
+            lifechip_receive = true;
             PageChange("lifechip_rece");
           }
         }
@@ -273,6 +274,7 @@ void BeetleScanWifi()
     }
     if (game_state == activate)
     {
+//       if (wifi_name.startsWith("HAS2"))
       if (wifi_name.startsWith("badland"))
       {
         has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);

@@ -114,7 +114,7 @@ void DataChange()
     static StaticJsonDocument<1000> cur;
 
     ChangeLanguage();
-    
+
     String cmd = "";
 
     // game_state에 변화가 있을 시
@@ -358,9 +358,9 @@ void DataChange()
         }
         if (((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost") && ((String)(const char *)my["game_state"] == "activate"))
         {
-            if (((String)(const char *)my["message_sender"] != (String)(const char *)my["player_name"]) && !revival && !hacking)
+            if (((String)(const char *)my["message_sender"] != (String)(const char *)my["player_name"]) && !revival && !hacking && !lifechip_receive)
             {
-                if (revival || hacking)
+                if (revival || hacking || lifechip_receive)
                 {
                     has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
                     cur = my;

@@ -15,13 +15,19 @@ bool breath_hold;
 bool lifechip_send;
 bool lifechip_receive;
 bool motor_on;
+String ir_decode_data;
 
-typedef enum GameState {setting, ready, activate};
+typedef enum GameState
+{
+    setting,
+    ready,
+    activate
+};
 GameState game_state = setting;
 
 //============================ Hardware Serial ============================
-HardwareSerial MySerial1(1);    // Beetle
-HardwareSerial MySerial2(2);    // Display
+HardwareSerial MySerial1(1); // Beetle
+HardwareSerial MySerial2(2); // Display
 
 //=============================== Display ===============================
 void DisplaySet();
@@ -48,7 +54,6 @@ void ReadyFunc();
 void ActivateFunc();
 void ActivateRunOnce();
 void DataChange();
-
 
 //=============================== Neopixel ===============================
 #define NUMPIXELS 4
@@ -89,27 +94,27 @@ const int MotorMAX_DUTY_CYCLE = (int)(pow(2, MotorResolution) - 1);
 
 #define ARRAYINDEX(X) sizeof(X) / sizeof(int)
 
-#define vibration_mode0   0
-#define vibration_mode1   130
-#define vibration_mode2   180
-#define vibration_mode3   210
-#define vibration_mode4   230
-#define vibration_mode5   240
+#define vibration_mode0 0
+#define vibration_mode1 130
+#define vibration_mode2 180
+#define vibration_mode3 210
+#define vibration_mode4 230
+#define vibration_mode5 240
 
-const int vibration_pattern_1[] = {1,0,0,1,5,2,0,0,0,1,2,1,0,0,0,0,0,0};   // BPM 83
-const int vibration_pattern_2[] = {1,0,1,5,3,0,0,1,2,1,0,0};               // BPM 125
-const int vibration_pattern_3[] = {5,5,5,5,5,5,5};
-const int vibration_pattern_4[] = {1,2,1,0,0,1,5,2,1,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // BPM 56
+const int vibration_pattern_1[] = {1, 0, 0, 1, 5, 2, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0}; // BPM 83
+const int vibration_pattern_2[] = {1, 0, 1, 5, 3, 0, 0, 1, 2, 1, 0, 0};                   // BPM 125
+const int vibration_pattern_3[] = {5, 5, 5, 5, 5, 5, 5};
+const int vibration_pattern_4[] = {1, 2, 1, 0, 0, 1, 5, 2, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // BPM 56
 
 void MotorInit();
 int Intensity(int intensity);
-void MotorOn(const int* vibration_pattern, int len);
+void MotorOn(const int *vibration_pattern, int len);
 void MotorStop();
 
 //=============================== QRD1114 ===============================
 /**
  * @brief QRD1114 근접센서를 통한 근접거리 측정
- * 
+ *
  * @return float 측정값 (0.1 ~ 20.1 [mm])
  */
 float DistanceCheck();
