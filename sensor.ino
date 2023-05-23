@@ -86,15 +86,16 @@ void IrReceive()
       // 자신의 IR이 찍히면 인식 X
       if ((String)(const char *)tag["device_name"] != (String)(const char *)my["device_name"])
       {
-        if ((String)(const char *)tag["role"] == "tagger")
+        if ((String)(const char *)tag["role"] == "tagger" || !hacking)
         {
           if ((String)(const char *)my["role"] == "player" && (String)(const char *)tag["device_state"] == "activate")
           {
             ir_receive_timer.disable(ir_receive_timer_id);
+            hacking = true;
             PageChange("hacking");
           }
         }
-        else if ((String)(const char *)tag["role"] == "player")
+        else if ((String)(const char *)tag["role"] == "player"|| !lifechip_receive)
         {
           if (((int)my["life_chip"] < (int)my["max_life_chip"]))
           {
@@ -168,7 +169,7 @@ void BatteryCheck()
   BL.pinRead();
   BL.getBatteryVolts();
 
-  if (BL.getBatteryVolts() < 3.8)
+  if (BL.getBatteryVolts() < 3.7)
   {
     static bool send_complete = false;
     if (!send_complete)

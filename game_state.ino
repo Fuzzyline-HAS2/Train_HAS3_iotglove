@@ -21,7 +21,6 @@ void SettingFunc()
 {
     game_state = setting;
     MySerial1.print("setting ");
-    ChangeLanguage();
 
     motor_on = false;
     MotorStop();
@@ -31,7 +30,7 @@ void SettingFunc()
     }
     ir_receive_timer.disable(ir_receive_timer_id);
     pixels.lightColor(white);
-    ledcWrite(5, 0);
+    ledcWrite(5, 0); 
 
     BatteryCheck();
 
@@ -42,12 +41,10 @@ void SettingFunc()
 /**
  * @brief DB gamestate가 ready 일 때 동작하는 코드
  */
-
 void ReadyFunc()
 {
     game_state = ready;
     MySerial1.print("ready ");
-    ChangeLanguage();
 
     motor_on = false;
     MotorStop();
@@ -92,7 +89,6 @@ void ActivateFunc()
 void ActivateRunOnce()
 {
     game_state = activate;
-    ChangeLanguage();
 
     MySerial1.print("activate ");
     ledcWrite(5, 0);
@@ -172,6 +168,7 @@ void DataChange()
                 ir_receive_timer.enable(ir_receive_timer_id);
             }
         }
+
         else if ((String)(const char *)my["device_state"] == "player_win")
         {
             MotorStop();
@@ -187,6 +184,7 @@ void DataChange()
                 sendCommand(cmd.c_str());
             }
         }
+
         else if ((String)(const char *)my["device_state"] == "player_lose")
         {
             MotorStop();
@@ -203,7 +201,7 @@ void DataChange()
             }
         }
 
-        else if ((String)(const char *)my["role"] == "tagger" && (String)(const char *)my["device_state"] == "blink")
+        else if ((String)(const char *)my["device_state"] == "blink" && (String)(const char *)my["role"] == "tagger")
         {
             if (!neopixel_timer.isEnabled(neopixel_timer_id))
             {
@@ -219,7 +217,7 @@ void DataChange()
             MySerial1.print("setting ");
             MotorStop();
             sendCommand("sleep=0");
-            if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost")
+            if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "revival" || (String)(const char *)my["role"] == "ghost")
             {
                 PageChange("player");
                 pixels.lightColor(green);
@@ -237,7 +235,13 @@ void DataChange()
     {
         if (game_state == activate)
         {
-            if ((String)(const char *)my["role"] == "revival")
+            if((String)(const char*)my["role"] == "player")
+            {
+                PageChange("player");
+                pixels.lightColor(green);
+                ir_receive_timer.enable(ir_receive_timer_id);
+            }
+            else if ((String)(const char *)my["role"] == "revival")
             {
                 ir_receive_timer.disable(ir_receive_timer_id);
                 PageChange("revival");
@@ -262,10 +266,6 @@ void DataChange()
             {
                 cmd = "player.LifeChip.pic=player.life_chip_pic.val";
                 sendCommand(cmd.c_str());
-                if ((String)(const char *)my["role"] == "ghost")
-                {
-                    has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-                }
             }
             else if ((int)my["life_chip"] > 1)
             {
@@ -338,9 +338,6 @@ void DataChange()
             {
                 motor_on = true;
             }
-            else if ((int)my["vibe"] == 1)
-            {
-            }
             else if ((int)my["vibe"] == 0)
             {
                 motor_on = false;
@@ -349,39 +346,6 @@ void DataChange()
         }
     }
 
-    if ((String)(const char *)my["message_sender"] != (String)(const char *)cur["message_sender"])
-    {
-        if ((String)(const char *)my["message_sender"] == "no")
-        {
-            cur = my;
-            return;
-        }
-        if (((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost") && ((String)(const char *)my["game_state"] == "activate"))
-        {
-            if (((String)(const char *)my["message_sender"] != (String)(const char *)my["player_name"]) && !revival && !hacking && !lifechip_receive)
-            {
-                if (revival || hacking || lifechip_receive)
-                {
-                    has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
-                    cur = my;
-                    return;
-                }
-                PageChange("msg_receive");
-                cmd = "sender.pic=sender_pic.val+" + (String)(const char *)my["message_sender"];
-                sendCommand(cmd.c_str());
-                cmd = "code.pic=code_pic.val+" + (String)(const char *)my["message_code"];
-                sendCommand(cmd.c_str());
-            }
-        }
-        else
-        {
-            has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
-        }
-    }
-
-    if ((int)my["skill_point"] != (int)cur["skill_point"])
-    {
-    }
     Serial.println("Data Change");
 
     cur = my;

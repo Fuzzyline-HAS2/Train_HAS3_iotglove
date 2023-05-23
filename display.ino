@@ -107,21 +107,16 @@ void DisplayCheck()
  */
 void NextionReceived(String *nextion_string)
 {
-    if (*nextion_string == "lifesend")
-    {
-        // TODO 타이머 사용하여 IR 송신하게
+    if(*nextion_string == "lifesend"){
         IrSend();
         PageChange("lifechip_send");
-        delay(5000);
+        delay(4000);
         PageChange("player");
     }
-    else if (*nextion_string == "lifechip_receive")
-    {
-        // TODO 디스플레이에서 5초 타이머 or x 터치를 통해 lifechip_receive 전송
+    else if(*nextion_string == "lifechip_receive"){
+         has2wifi.SendSituation(ir_decode_data, "send_life");
         if ((String)(const char *)my["role"] == "ghost")
         {
-            // has2wifi.Send((const char *)tag["device_name"], "exp", "+100");
-            // PageChange("revival");
             has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
         }
         else if ((String)(const char *)my["role"] == "player")
@@ -129,42 +124,22 @@ void NextionReceived(String *nextion_string)
             PageChange("player");
             ir_receive_timer.enable(ir_receive_timer_id);
         }
-         has2wifi.Situation(ir_decode_data, "send_life");
-//        has2wifi.Send((const char *)tag["device_name"], "life_chip", "-1");
-//        has2wifi.Send((const char *)my["device_name"], "life_chip", "+1");
         lifechip_receive = false;
     }
-    else if (*nextion_string == "hacking")
-    {
-        // TODO hacking 시리얼을 hacking 시작과 동시에 보냄
-        hacking = true;
-        ir_receive_timer.disable(ir_receive_timer_id);
-    }
-    else if (*nextion_string == "die")
-    {
-        hacking = false;
-
-        if ((int)my["life_chip"] > 1)
-        {
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-        }
-        has2wifi.Situation(ir_decode_data, "taken");
-        // has2wifi.Send((String)(const char *)my["tagger_name"], "taken_chip", "+1");
-        // // has2wifi.Send((String)(const char*)my["tagger_name"], "exp", "+100");
-        // has2wifi.Send((String)(const char *)my["device_name"], "life_chip", "-1");
-    }
-    else if (*nextion_string == "revival")
-    { // revival 종료
-        PageChange("player");
-        // has2wifi.Send((String)(const char*)my["device_name"], "exp", "+45");
+    else if(*nextion_string == "revival"){
         has2wifi.Send((String)(const char *)my["device_name"], "role", "player");
-        pixels.lightColor(green);
         revival = false;
         ir_receive_timer.enable(ir_receive_timer_id);
     }
-    else if (*nextion_string == "messege_exit")
-    {
-        if ((String)(const char *)my["role"] == "player")
+    else if(*nextion_string == "hacking"){
+        ir_receive_timer.disable(ir_receive_timer_id);
+    }
+    else if(*nextion_string == "die"){
+        hacking = false;
+        has2wifi.SendSituation(ir_decode_data, "taken");
+    }
+    else if(*nextion_string == "messege_exit"){
+         if ((String)(const char *)my["role"] == "player")
         {
             PageChange("player");
         }
@@ -173,29 +148,11 @@ void NextionReceived(String *nextion_string)
             Serial.println("messege ghost");
             PageChange("ghost");
         }
-
         has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
     }
-
-    // BUG 한사람당 한번만 보낼 수 있는 버그 수정 필요
-    else if ((*nextion_string).startsWith("msg_"))
-    {
-//        String message_code = (*nextion_string).substring(4);
-//        String message_sender = (String)(const char *)my["device_name"];
-//        String group = message_sender.substring(0, 2);
-//        for (int i = 1; i < 9; ++i)
-//        {
-//            String receive_player_name = group + "P" + String(i);
-//            if (receive_player_name == (String)(const char *)my["device_name"])
-//            {
-//                has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
-//            }
-//            else if (receive_player_name != (String)(const char *)my["device_name"])
-//            {
-//                has2wifi.Send(receive_player_name, "message_sender", (String)(const char *)my["player_name"]);
-//                has2wifi.Send(receive_player_name, "message_code", message_code);
-//            }
-//        }
+    else{
+        Serial.print("Error String : ");
+        Serial.println(*nextion_string);
     }
 }
 
@@ -203,11 +160,7 @@ void PageChange(String page)
 {
     static String cur_page = "";
 
-    if (cur_page != page)
-    {
-        String cmd = "page " + page;
-        sendCommand(cmd.c_str());
-        cur_page = page;
-    }
-    delay(700);
+    String cmd = "page " + page;
+    sendCommand(cmd.c_str());
+    cur_page = page;
 }

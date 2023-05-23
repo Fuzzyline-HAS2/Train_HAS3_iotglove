@@ -134,8 +134,6 @@ SimpleTimer neopixel_timer;
 
 void TimerInit();
 void TimerRun();
-void PlayerIrSendTimerFunc();
-void HackingTimerFunc();
 void WifiTimerFunc();
 
 // 타이머 설정 관련 함수

@@ -6,7 +6,7 @@ void TimerInit()
 {
   ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
   ir_receive_timer.disable(ir_receive_timer_id);
-  wifi_timer_id = wifi_timer.setInterval(500, WifiTimerFunc);
+  wifi_timer_id = wifi_timer.setInterval(1000, WifiTimerFunc);
 }
 
 /**
@@ -20,19 +20,7 @@ void TimerRun()
   neopixel_timer.run();
 }
 
-void HackingTimerFunc()
-{
-  hacking_state = false;
-  PageChange("player");
-}
-
 void WifiTimerFunc()
 {
   has2wifi.Loop(DataChange);
-  
-}
-
-void PlayerIrSendTimerFunc()
-{
-  PageChange("player");
 }
