@@ -107,14 +107,16 @@ void DisplayCheck()
  */
 void NextionReceived(String *nextion_string)
 {
-    if(*nextion_string == "lifesend"){
+    if (*nextion_string == "lifesend")
+    {
         IrSend();
         PageChange("lifechip_send");
         delay(4000);
         PageChange("player");
     }
-    else if(*nextion_string == "lifechip_receive"){
-         has2wifi.SendSituation(ir_decode_data, "send_life");
+    else if (*nextion_string == "lifechip_receive")
+    {
+        has2wifi.Situation(ir_decode_data, "send_life");
         if ((String)(const char *)my["role"] == "ghost")
         {
             has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
@@ -126,20 +128,31 @@ void NextionReceived(String *nextion_string)
         }
         lifechip_receive = false;
     }
-    else if(*nextion_string == "revival"){
+    else if (*nextion_string == "revival")
+    {
         has2wifi.Send((String)(const char *)my["device_name"], "role", "player");
         revival = false;
         ir_receive_timer.enable(ir_receive_timer_id);
     }
-    else if(*nextion_string == "hacking"){
+    else if (*nextion_string == "hacking")
+    {
         ir_receive_timer.disable(ir_receive_timer_id);
     }
-    else if(*nextion_string == "die"){
+    else if (*nextion_string == "die")
+    {
         hacking = false;
-        has2wifi.SendSituation(ir_decode_data, "taken");
+        if ((int)my["life_chip"] > 1)
+        {
+            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
+        }
+        if ((int)my["life_chip"] > 0)
+        {
+            has2wifi.Situation(ir_decode_data, "taken");
+        }
     }
-    else if(*nextion_string == "messege_exit"){
-         if ((String)(const char *)my["role"] == "player")
+    else if (*nextion_string == "messege_exit")
+    {
+        if ((String)(const char *)my["role"] == "player")
         {
             PageChange("player");
         }
@@ -150,7 +163,8 @@ void NextionReceived(String *nextion_string)
         }
         has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
     }
-    else{
+    else
+    {
         Serial.print("Error String : ");
         Serial.println(*nextion_string);
     }

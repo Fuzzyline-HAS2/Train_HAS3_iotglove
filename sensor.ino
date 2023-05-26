@@ -78,7 +78,7 @@ void IrReceive()
     ir_decode_data = IrDecoding((uint32_t)results.value);
     if ((!ir_receive_error) && (ir_decode_data != "error"))
     {
-      Serial.print("IR 데이터 : ");
+      Serial.print("IR DATA : ");
       Serial.println(ir_decode_data);
       // 1. IR 수신데이터[플레이어 정보]를 DB에서 읽어와서 술래인지, 플레이어인지 확인
       has2wifi.Receive(ir_decode_data);
@@ -86,7 +86,7 @@ void IrReceive()
       // 자신의 IR이 찍히면 인식 X
       if ((String)(const char *)tag["device_name"] != (String)(const char *)my["device_name"])
       {
-        if ((String)(const char *)tag["role"] == "tagger" || !hacking)
+        if ((String)(const char *)tag["role"] == "tagger" && !hacking)
         {
           if ((String)(const char *)my["role"] == "player" && (String)(const char *)tag["device_state"] == "activate")
           {
@@ -95,7 +95,7 @@ void IrReceive()
             PageChange("hacking");
           }
         }
-        else if ((String)(const char *)tag["role"] == "player"|| !lifechip_receive)
+        else if ((String)(const char *)tag["role"] == "player")
         {
           if (((int)my["life_chip"] < (int)my["max_life_chip"]))
           {
@@ -275,8 +275,8 @@ void BeetleScanWifi()
     }
     if (game_state == activate)
     {
-//       if (wifi_name.startsWith("HAS2"))
-      if (wifi_name.startsWith("badland"))
+      if (wifi_name.startsWith("HAS2"))
+//       if (wifi_name.startsWith("badland"))
       {
         has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);
       }
