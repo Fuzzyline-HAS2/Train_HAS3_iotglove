@@ -22,5 +22,8 @@ void TimerRun()
 
 void WifiTimerFunc()
 {
-  has2wifi.Loop(DataChange);
+  has2wifi.Connect();
+  if(WiFi.status() != WL_CONNECTED){
+    has2wifi.Loop(DataChange);
+  }
 }
