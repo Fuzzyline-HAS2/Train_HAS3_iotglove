@@ -275,8 +275,8 @@ void BeetleScanWifi()
     }
     if (game_state == activate)
     {
-      if (wifi_name.startsWith("HAS2"))
-//       if (wifi_name.startsWith("badland"))
+      // if (wifi_name.startsWith("HAS2"))
+      if (wifi_name.startsWith("badland"))
       {
         has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);
       }
