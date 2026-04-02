@@ -41,11 +41,17 @@ void PageChange(String page);
  */
 void SensorInit();
 
-//=============================== Beetle =================================
-void BeetleScanWifi();
-
 //================================ Wifi ==================================
-HAS2_Wifi has2wifi;
+HAS2_Wifi has2wifi("http://172.30.1.43");
+
+//================================ OTA ==================================
+SecureOTA ota(
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.bin",
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/version.txt",
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.sig",
+  HMAC_SECRET,
+  FIRMWARE_VER
+);
 
 bool activate_bool;
 
@@ -68,6 +74,8 @@ int yellow[3] = {standard_neo, standard_neo, 0};
 int green[3] = {0, standard_neo, 0};
 int purple[3] = {standard_neo, 0, standard_neo};
 int blue[3] = {0, 0, standard_neo};
+
+void lightColor(int color[]);
 
 //================================== IR ==================================
 #define DECODE_NEC_
