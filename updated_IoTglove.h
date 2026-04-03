@@ -10,6 +10,8 @@ String wifi_name;
 
 bool hacking_state;
 bool hacking;
+int hack_count = 0;
+#define HACK_THRESHOLD 3
 bool revival;
 bool breath_hold;
 bool lifechip_send;
@@ -139,6 +141,7 @@ SimpleTimer player_ir_send_timer;
 SimpleTimer hacking_timer; // ir 수신 타이머
 SimpleTimer wifi_timer;
 SimpleTimer neopixel_timer;
+SimpleTimer battery_timer;
 
 void TimerInit();
 void TimerRun();
@@ -150,7 +153,9 @@ int player_ir_send_timer_id;
 int hacking_timer_id;
 int wifi_timer_id;
 int neopixel_timer_id;
+int battery_timer_id;
 
 //================================ Neo =================================
+void ota_success_blink();
 void tagger_blink();
 #endif

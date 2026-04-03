@@ -1,4 +1,4 @@
-#include "iotglove.h"
+#include "updated_IoTglove.h"
 
 /**
  * @brief 디스플레이 화면 초기화
@@ -85,17 +85,21 @@ void DisplaySet()
 
 void DisplayCheck()
 {
-    if (MySerial2.available() > 0)
+    while (MySerial2.available() > 0)
     {
-        if (MySerial2.read() == 'H')
+        if (MySerial2.peek() != 'H')
         {
-            if (MySerial2.read() == '_')
-            {
-                String nextion_string = MySerial2.readStringUntil(' ');
-                Serial.print("Nextion String : ");
-                Serial.println(nextion_string);
-                NextionReceived(&nextion_string);
-            }
+            MySerial2.read();
+            continue;
+        }
+        if (MySerial2.available() < 3) return;
+        MySerial2.read(); // 'H' 소비
+        if (MySerial2.read() == '_')
+        {
+            String nextion_string = MySerial2.readStringUntil(' ');
+            Serial.print("Nextion String : ");
+            Serial.println(nextion_string);
+            NextionReceived(&nextion_string);
         }
     }
 }
@@ -116,23 +120,38 @@ void NextionReceived(String *nextion_string)
     }
     else if (*nextion_string == "lifechip_receive")
     {
-        has2wifi.Situation(ir_decode_data, "send_life");
         if ((String)(const char *)my["role"] == "ghost")
         {
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
+            PageChange("revival");
         }
         else if ((String)(const char *)my["role"] == "player")
         {
             PageChange("player");
             ir_receive_timer.enable(ir_receive_timer_id);
         }
+        has2wifi.Situation(ir_decode_data, "send_life");
+        if ((String)(const char *)my["role"] == "ghost")
+        {
+            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
+        }
         lifechip_receive = false;
     }
     else if (*nextion_string == "revival")
     {
-        has2wifi.Send((String)(const char *)my["device_name"], "role", "player");
         revival = false;
-        ir_receive_timer.enable(ir_receive_timer_id);
+        irrecv.resume();
+        if ((int)my["life_chip"] > 0)
+        {
+            PageChange("player");
+            has2wifi.Send((String)(const char *)my["device_name"], "role", "player");
+            ir_receive_timer.enable(ir_receive_timer_id);
+        }
+        else
+        {
+            PageChange("ghost");
+            has2wifi.Send((String)(const char *)my["device_name"], "role", "ghost");
+            ir_receive_timer.enable(ir_receive_timer_id);
+        }
     }
     else if (*nextion_string == "hacking")
     {
@@ -141,13 +160,18 @@ void NextionReceived(String *nextion_string)
     else if (*nextion_string == "die")
     {
         hacking = false;
-        if ((int)my["life_chip"] > 1)
-        {
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-        }
         if ((int)my["life_chip"] > 0)
         {
             has2wifi.Situation(ir_decode_data, "taken");
+        }
+        if ((int)my["life_chip"] > 1)
+        {
+            PageChange("revival");
+            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
+        }
+        else
+        {
+            PageChange("ghost");
         }
     }
     else if (*nextion_string == "messege_exit")

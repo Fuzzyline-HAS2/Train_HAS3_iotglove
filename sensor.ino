@@ -1,4 +1,4 @@
-#include "iotglove.h"
+#include "updated_IoTglove.h"
 //****************************************** Initialize ******************************************
 void SensorInit()
 {
@@ -89,13 +89,23 @@ void IrReceive()
         {
           if ((String)(const char *)my["role"] == "player" && (String)(const char *)tag["device_state"] == "activate")
           {
-            ir_receive_timer.disable(ir_receive_timer_id);
-            hacking = true;
-            PageChange("hacking");
+            hack_count++;
+            if (hack_count >= HACK_THRESHOLD)
+            {
+              hack_count = 0;
+              ir_receive_timer.disable(ir_receive_timer_id);
+              hacking = true;
+              PageChange("hacking");
+            }
+          }
+          else
+          {
+            hack_count = 0;
           }
         }
         else if ((String)(const char *)tag["role"] == "player")
         {
+          hack_count = 0;
           if (((int)my["life_chip"] < (int)my["max_life_chip"]))
           {
             ir_receive_timer.disable(ir_receive_timer_id);
@@ -168,15 +178,7 @@ void BatteryCheck()
   BL.pinRead();
   BL.getBatteryVolts();
 
-  if (BL.getBatteryVolts() < 3.7)
-  {
-    static bool send_complete = false;
-    if (!send_complete)
-    {
-      send_complete = true;
-      has2wifi.Send((String)(const char *)my["device_name"], "device_state", "battery");
-    }
-  }
+  has2wifi.Send((String)(const char *)my["device_name"], "battery_remaining", String(BL.getBatteryVolts(), 2));
 }
 
 void MotorInit()
@@ -247,6 +249,17 @@ void lightColor(int color[])
   {
     pixels.setPixelColor(i, pixels.Color(color[0], color[1], color[2]));
   }
+  pixels.show();
+}
+
+void ota_success_blink()
+{
+  for (int i = 0; i < 6; i++)
+  {
+    lightColor(i % 2 == 0 ? red : blue);
+    delay(300);
+  }
+  pixels.clear();
   pixels.show();
 }
 

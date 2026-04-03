@@ -1,4 +1,4 @@
-#include "iotglove.h"
+#include "updated_IoTglove.h"
 
 void ChangeLanguage()
 {
@@ -244,14 +244,18 @@ void DataChange()
             {
                 PageChange("player");
                 lightColor(green);
+                irrecv.resume();
                 ir_receive_timer.enable(ir_receive_timer_id);
             }
             else if ((String)(const char *)my["role"] == "revival")
             {
                 ir_receive_timer.disable(ir_receive_timer_id);
-                PageChange("revival");
                 lightColor(yellow);
-                revival = true;
+                if (!revival)
+                {
+                    PageChange("revival");
+                    revival = true;
+                }
             }
             else if ((String)(const char *)my["role"] == "ghost")
             {
@@ -282,7 +286,10 @@ void DataChange()
             }
             else if ((int)my["life_chip"] < 1)
             {
-                has2wifi.Send((String)(const char *)my["device_name"], "role", "ghost");
+                if ((String)(const char *)my["role"] != "revival")
+                {
+                    has2wifi.Send((String)(const char *)my["device_name"], "role", "ghost");
+                }
             }
 
             cmd = "player.life_chip.val=" + (String)(const char *)my["life_chip"];

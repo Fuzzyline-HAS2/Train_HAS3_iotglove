@@ -9,7 +9,7 @@
  *
  */
 
-#include "iotglove.h"
+#include "updated_IoTglove.h"
 
 //************************************************ Core1 ********************************************************************
 /**
@@ -25,6 +25,7 @@ void IotGloveInit()
   // has2wifi.Setup("city"); // 쌈지 시티 와이파이
   has2wifi.Setup("badland_ruins", "Code3824@");  // 쌈지 배드랜드 와이파이
   ota.setOnSuccess([]() {
+    ota_success_blink();
     has2wifi.Send((String)(const char *)my["device_name"], "device_state", "setting");
   });
   ota.setOnSkip([]() {
@@ -41,11 +42,12 @@ void IotGloveInit()
  */
 void setup()
 {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   delay(500);
   IotGloveInit();
 }
 
-/**
+/** 
  * @brief 아두이노 기본 문법 (전원이 켜져있는동안 Core1에서 계속 실행)
  */
 void loop()
