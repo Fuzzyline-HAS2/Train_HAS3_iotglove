@@ -12,7 +12,6 @@ bool hacking_state;
 bool hacking;
 int hack_count = 0;
 #define HACK_THRESHOLD 3
-#define IR_TAGGER_DUTY 5  // 술래 IR 송신 duty cycle (%) - 낮출수록 도달거리 짧아짐 (기본 50)
 bool revival;
 bool breath_hold;
 bool lifechip_send;
