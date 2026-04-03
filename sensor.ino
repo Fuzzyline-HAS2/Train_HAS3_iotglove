@@ -62,6 +62,15 @@ void IrSendDataSetup(String device_name)
  */
 void IrSend()
 {
+  if ((String)(const char *)my["role"] == "tagger")
+  {
+    // 술래는 duty cycle을 낮춰 송신 거리를 ~5cm로 제한
+    irsend.enableIROut(38000, IR_TAGGER_DUTY);
+  }
+  else
+  {
+    irsend.enableIROut(38000, 50);  // 일반 출력 복원
+  }
   irsend.sendNEC(ir_send_data);
   delay(500);
 }
@@ -105,7 +114,6 @@ void IrReceive()
         }
         else if ((String)(const char *)tag["role"] == "player")
         {
-          hack_count = 0;
           if (((int)my["life_chip"] < (int)my["max_life_chip"]))
           {
             ir_receive_timer.disable(ir_receive_timer_id);
