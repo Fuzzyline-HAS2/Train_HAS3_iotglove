@@ -23,7 +23,7 @@
 #include <SecureOTA.h>
 #include "secrets.h"
 
-#define FIRMWARE_VER 7
+#define FIRMWARE_VER 8
 
 // 핀 선언
 #define SERIAL1_RX_PIN 36 // ESP32 비틀 RX
