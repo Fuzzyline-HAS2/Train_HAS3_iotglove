@@ -86,16 +86,16 @@ void FirstRssi(int scan_network)
 
     for (int i = 0; i < scan_network; ++i)
     {
-        if(WiFi.SSID(i).startsWith("HAS2") && WiFi.RSSI(i) > -50){
+        if(WiFi.SSID(i).startsWith("badland")){
             Serial.print(WiFi.SSID(i));Serial.print(" ["); Serial.print(WiFi.RSSI(i));Serial.println("]");Serial.println();
-     
-            if (WiFi.RSSI(i) > first_rssi){      
+
+            if (WiFi.RSSI(i) > first_rssi){
                 first_rssi = WiFi.RSSI(i);
-                first_wifi_name = WiFi.SSID(i);  
+                first_wifi_name = WiFi.SSID(i);
             }
-        } 
+        }
     }
-    
+
     if(cur_wifi_name != first_wifi_name){
         send_ttgo = false;
         loop_num = 0;
@@ -105,8 +105,7 @@ void FirstRssi(int scan_network)
         if (!send_ttgo && ++loop_num > 1)
         {
             send_ttgo = true;
-            // Serial.println(cur_wifi_name);
-            if(cur_wifi_name.startsWith("HAS2")){
+            if(cur_wifi_name.startsWith("badland")){
                 Serial.print("Best : "); Serial.println(cur_wifi_name);
                 Serial.println();
                 MySerial1.print(cur_wifi_name + " ");
