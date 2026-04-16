@@ -360,6 +360,21 @@ void DataChange()
         }
     }
 
+    // brightness에 변화가 있을 시
+    if ((String)(const char *)my["brightness"] != (String)(const char *)cur["brightness"])
+    {
+        int val = ((String)(const char *)my["brightness"]).toInt();
+        if (val <= 0 || val > 100)
+        {
+            neo_brightness = 255;
+        }
+        else
+        {
+            neo_brightness = map(val, 1, 100, 1, 255);
+        }
+        ApplyBrightness();
+    }
+
     Serial.println("Data Change");
 
     cur = my;

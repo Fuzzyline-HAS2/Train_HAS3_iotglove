@@ -23,7 +23,7 @@ void IotGloveInit()
   MySerial2.begin(9600, SERIAL_8N1, SERIAL2_RX_PIN, SERIAL2_TX_PIN);
   // has2wifi.Setup();     // 사무실 와이파이
   // has2wifi.Setup("city"); // 쌈지 시티 와이파이
-  has2wifi.Setup("badland_ruins", "Code3824@");  // 쌈지 배드랜드 와이파이
+  has2wifi.Setup("badland");  // 쌈지 배드랜드 와이파이
   ota.setOnSuccess([]() {
     ota_success_blink();
     has2wifi.Send((String)(const char *)my["device_name"], "device_state", "setting");

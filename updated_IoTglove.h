@@ -44,7 +44,7 @@ void PageChange(String page);
 void SensorInit();
 
 //================================ Wifi ==================================
-HAS2_Wifi has2wifi("http://172.30.1.43");
+HAS2_Wifi has2wifi("http://172.30.1.44");
 
 //================================ OTA ==================================
 SecureOTA ota(
@@ -67,6 +67,8 @@ void DataChange();
 #define NUMPIXELS 4
 
 int standard_neo = 20;
+int neo_brightness = 255;
+int neo_current_color[3] = {0, 0, 0};
 Adafruit_NeoPixel pixels(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 // Neopixel 색상정보
@@ -78,6 +80,7 @@ int purple[3] = {standard_neo, 0, standard_neo};
 int blue[3] = {0, 0, standard_neo};
 
 void lightColor(int color[]);
+void ApplyBrightness();
 
 //================================== IR ==================================
 #define DECODE_NEC_

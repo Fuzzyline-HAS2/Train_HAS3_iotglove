@@ -245,11 +245,23 @@ void MotorStop()
 //******************************************* Neopixel *******************************************
 void lightColor(int color[])
 {
+  neo_current_color[0] = color[0];
+  neo_current_color[1] = color[1];
+  neo_current_color[2] = color[2];
   for (int i = 0; i < NUMPIXELS; i++)
   {
-    pixels.setPixelColor(i, pixels.Color(color[0], color[1], color[2]));
+    pixels.setPixelColor(i, pixels.Color(
+      color[0] * neo_brightness / 255,
+      color[1] * neo_brightness / 255,
+      color[2] * neo_brightness / 255
+    ));
   }
   pixels.show();
+}
+
+void ApplyBrightness()
+{
+  lightColor(neo_current_color);
 }
 
 void ota_success_blink()
