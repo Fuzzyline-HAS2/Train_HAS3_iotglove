@@ -4,6 +4,8 @@ void SensorInit()
 {
   // Neopixel init
   pixels.begin();
+  pixels.setBrightness(ledBrightness);
+  lightColor(white);
 
   // IR init
   IrInit();
@@ -243,25 +245,21 @@ void MotorStop()
 }
 
 //******************************************* Neopixel *******************************************
-void lightColor(int color[])
-{
-  neo_current_color[0] = color[0];
-  neo_current_color[1] = color[1];
-  neo_current_color[2] = color[2];
-  for (int i = 0; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(
-      color[0] * neo_brightness / 255,
-      color[1] * neo_brightness / 255,
-      color[2] * neo_brightness / 255
-    ));
+void UpdateBrightness() {
+  int serverBrightness = my["brightness"].as<int>();
+  if (serverBrightness <= 0 || serverBrightness > 100) {
+    ledBrightness = DEFAULT_BRIGHTNESS;
+  } else {
+    ledBrightness = map(serverBrightness, 1, 100, 1, 255);
   }
+  pixels.setBrightness(ledBrightness);
   pixels.show();
 }
 
-void ApplyBrightness()
+void lightColor(int color[])
 {
-  lightColor(neo_current_color);
+  pixels.fill(pixels.Color(color[0], color[1], color[2]));
+  pixels.show();
 }
 
 void ota_success_blink()

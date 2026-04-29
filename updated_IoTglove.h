@@ -65,22 +65,21 @@ void DataChange();
 
 //=============================== Neopixel ===============================
 #define NUMPIXELS 4
+#define DEFAULT_BRIGHTNESS 50
 
-int standard_neo = 20;
-int neo_brightness = 255;
-int neo_current_color[3] = {0, 0, 0};
+int ledBrightness = DEFAULT_BRIGHTNESS;
 Adafruit_NeoPixel pixels(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 // Neopixel 색상정보
-int white[3] = {standard_neo, standard_neo, standard_neo};
-int red[3] = {standard_neo, 0, 0};
-int yellow[3] = {standard_neo, standard_neo, 0};
-int green[3] = {0, standard_neo, 0};
-int purple[3] = {standard_neo, 0, standard_neo};
-int blue[3] = {0, 0, standard_neo};
+int white[3]  = {255, 255, 255};
+int red[3]    = {255, 0,   0  };
+int yellow[3] = {255, 255, 0  };
+int green[3]  = {0,   255, 0  };
+int purple[3] = {255, 0,   255};
+int blue[3]   = {0,   0,   255};
 
 void lightColor(int color[]);
-void ApplyBrightness();
+void UpdateBrightness();
 
 //================================== IR ==================================
 #define DECODE_NEC_
