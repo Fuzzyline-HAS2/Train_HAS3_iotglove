@@ -1,4 +1,4 @@
-#define __DEBUG__
+﻿#define __DEBUG__
 
 #ifndef _IOTGLOVE_H_
 #define _IOTGLOVE_H_
@@ -44,7 +44,7 @@ void PageChange(String page);
 void SensorInit();
 
 //================================ Wifi ==================================
-HAS2_Wifi has2wifi("http://172.30.1.44");
+HAS2_Wifi has2wifi("http://172.30.1.43");
 
 //================================ OTA ==================================
 SecureOTA ota(
