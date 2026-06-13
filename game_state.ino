@@ -97,14 +97,124 @@ void SendRoleRequest(const char *role)
     has2wifi.Send((String)(const char *)my["device_name"], "role", role);
 }
 
-void ResetActivateSideEffects(bool clear_revival_help_records)
+const char *CurrentOtaChannel()
 {
-    motor_on = false;
-    MotorStop();
+    const char *channel = GameJsonText("ota_channel");
+    return channel[0] == '\0' ? "prd" : channel;
+}
+
+String ResolveOtaManifestUrl(const char *channel)
+{
+    const char *manifest_url = GameJsonText("ota_manifest_url");
+    if (manifest_url[0] != '\0')
+    {
+        return String(manifest_url);
+    }
+
+    if (TextEquals(channel, "dev"))
+    {
+        return String(OTA_DEV_MANIFEST_URL);
+    }
+    if (TextEquals(channel, "rc"))
+    {
+        return String(OTA_RC_MANIFEST_URL);
+    }
+    return String(OTA_PRD_MANIFEST_URL);
+}
+
+void SendOtaError()
+{
+    has2wifi.Send((String)(const char *)my["device_name"], "device_state", "ota_error");
+}
+
+void RunManifestOta()
+{
+    const char *channel = CurrentOtaChannel();
+    String manifest_url = ResolveOtaManifestUrl(channel);
+    if (manifest_url.length() == 0)
+    {
+        SendOtaError();
+        return;
+    }
+
+    if (!ota.checkManifest(manifest_url.c_str(), channel))
+    {
+        SendOtaError();
+    }
+}
+
+void StopNeopixelTimer()
+{
     if (neopixel_timer.isEnabled(neopixel_timer_id))
     {
         neopixel_timer.deleteTimer(neopixel_timer_id);
     }
+}
+
+void SetMotorIntensity(int intensity)
+{
+    if (intensity <= 0)
+    {
+        ledcWrite(MOTOR_PWMA_PIN, 0);
+        MotorStop();
+        return;
+    }
+
+    ledcWrite(MOTOR_PWMA_PIN, Intensity(intensity));
+    digitalWrite(MOTOR_INA1_PIN, HIGH);
+    digitalWrite(MOTOR_INA2_PIN, LOW);
+}
+
+void StartPageChangeVibration()
+{
+    page_change_vibration_active = true;
+    page_change_vibration_started_ms = millis();
+    SetMotorIntensity(PAGE_CHANGE_VIBRATION_INTENSITY);
+}
+
+void UpdateVibration()
+{
+    if (page_change_vibration_active)
+    {
+        unsigned long elapsed_ms = millis() - page_change_vibration_started_ms;
+        bool first_pulse = elapsed_ms < PAGE_CHANGE_VIBRATION_ON_MS;
+        bool second_pulse = elapsed_ms >= (PAGE_CHANGE_VIBRATION_ON_MS + PAGE_CHANGE_VIBRATION_GAP_MS) &&
+                            elapsed_ms < PAGE_CHANGE_VIBRATION_TOTAL_MS;
+
+        if (first_pulse || second_pulse)
+        {
+            SetMotorIntensity(PAGE_CHANGE_VIBRATION_INTENSITY);
+            return;
+        }
+
+        if (elapsed_ms < PAGE_CHANGE_VIBRATION_TOTAL_MS)
+        {
+            SetMotorIntensity(0);
+            return;
+        }
+
+        page_change_vibration_active = false;
+    }
+
+    bool should_vibrate = game_state == activate &&
+                          IsPlayerRole(CurrentRole()) &&
+                          (motor_on || pending_revival_vibration);
+    if (should_vibrate)
+    {
+        MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
+    }
+    else
+    {
+        SetMotorIntensity(0);
+    }
+}
+
+void ResetActivateSideEffects(bool clear_revival_help_records)
+{
+    motor_on = false;
+    MotorStop();
+    StopNeopixelTimer();
+    StopSurConnect();
     ir_receive_timer.disable(ir_receive_timer_id);
     tag_capture_pending = false;
     hacking = false;
@@ -248,9 +358,50 @@ void UpdateTagCaptureFlow()
     }
 }
 
+void StartSurConnect()
+{
+    if (sur_connect_pending)
+    {
+        return;
+    }
+
+    sur_connect_pending = true;
+    sur_connect_started_ms = millis();
+    sendCommand("sleep=0");
+    PageChange("pgSurConnect");
+}
+
+void StopSurConnect()
+{
+    sur_connect_pending = false;
+    sur_connect_started_ms = 0;
+}
+
+void UpdateSurConnectFlow()
+{
+    if (!sur_connect_pending)
+    {
+        return;
+    }
+
+    if (game_state != activate || !CurrentDeviceStateIs("activate") || !IsPlayerRole(CurrentRole()))
+    {
+        StopSurConnect();
+        return;
+    }
+
+    unsigned long elapsed_ms = millis() - sur_connect_started_ms;
+    if (elapsed_ms >= SUR_CONNECT_MIN_MS || elapsed_ms >= SUR_CONNECT_TIMEOUT_MS)
+    {
+        StopSurConnect();
+        ShowRolePage();
+    }
+}
+
 void ShowRolePage()
 {
     const char *role = CurrentRole();
+    StopNeopixelTimer();
     sendCommand("sleep=0");
 
     if (IsPlayerRole(role))
@@ -420,15 +571,6 @@ void ActivateFunc()
     UpdateTagCaptureFlow();
 
     const char *role = CurrentRole();
-    bool should_vibrate = motor_on || pending_revival_vibration;
-    if (should_vibrate && IsPlayerRole(role))
-    {
-        MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
-    }
-    else
-    {
-        MotorStop();
-    }
 
     if (CurrentDeviceStateIs("activate"))
     {
@@ -494,11 +636,11 @@ void HandleDeviceStateChange()
             neopixel_timer_id = neopixel_timer.setInterval(400, tagger_blink);
         }
         sendCommand("sleep=0");
-        PageChange("pgTagEmpty");
+        PageChange("pgTagAltar");
     }
     else if (TextEquals(device_state, "github"))
     {
-        ota.check();
+        RunManifestOta();
     }
     else if (TextEquals(device_state, "photo"))
     {
@@ -526,6 +668,7 @@ void DataChange()
 
     if (!TextEquals(my_game_state, cur_game_state))
     {
+        StopSurConnect();
         if (TextEquals(my_game_state, "setting"))
         {
             SettingFunc();
@@ -542,11 +685,13 @@ void DataChange()
 
     if (!TextEquals(my_device_state, cur_device_state))
     {
+        StopSurConnect();
         HandleDeviceStateChange();
     }
 
     if (!TextEquals(my_role, cur_role))
     {
+        StopSurConnect();
         if (game_state == activate && !CurrentDeviceStateIs("photo"))
         {
             ShowRolePage();

@@ -1,0 +1,8 @@
+{
+  "name": "SimpleTimer",
+  "version": "0.0.0+vendor.20260326",
+  "description": "Vendored SimpleTimer snapshot used by updated_IoTglove",
+  "keywords": ["timer"],
+  "frameworks": ["arduino"],
+  "platforms": ["espressif32"]
+}

@@ -20,10 +20,32 @@
 #include <esp_task_wdt.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
-#include <SecureOTA.h>
+#include "SecureOTA.h"
 #include "secrets.h"
 
-#define FIRMWARE_VER 13
+#define FIRMWARE_VERSION "1.2.4-dev.1"
+#define FIRMWARE_VERSION_CODE 10204101
+#define FIRMWARE_VER FIRMWARE_VERSION_CODE
+
+#ifndef BUILD_GIT_COMMIT
+#define BUILD_GIT_COMMIT "local"
+#endif
+
+#ifndef BUILD_ESP32_CORE
+#define BUILD_ESP32_CORE "arduino-cli"
+#endif
+
+#ifndef BUILD_PLATFORMIO_CORE
+#define BUILD_PLATFORMIO_CORE "not-platformio"
+#endif
+
+#ifndef BUILD_PLATFORM
+#define BUILD_PLATFORM "arduino-cli"
+#endif
+
+#ifndef BUILD_LIBRARY_SUMMARY
+#define BUILD_LIBRARY_SUMMARY "arduino-global-libraries"
+#endif
 
 // 핀 선언
 #define SERIAL1_RX_PIN 36 // ESP32 비틀 RX

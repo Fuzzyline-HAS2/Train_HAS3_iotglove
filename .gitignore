@@ -3,7 +3,9 @@ scripts/secrets.py
 
 /ArduinoBuild/
 /build/
+/dist/
 /logs/
+/.pio/
 
 /.claude/
 /.omc/

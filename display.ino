@@ -105,8 +105,13 @@ void DisplayCheck()
 
 void PageChange(const char *page)
 {
+    bool page_changed = !TextEquals(current_hmi_page, page);
     char cmd[32];
     snprintf(cmd, sizeof(cmd), "page %s", page);
     sendCommand(cmd);
+    if (page_changed)
+    {
+        StartPageChangeVibration();
+    }
     snprintf(current_hmi_page, sizeof(current_hmi_page), "%s", page);
 }

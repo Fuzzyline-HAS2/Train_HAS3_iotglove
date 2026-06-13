@@ -11,6 +11,18 @@
 
 #include "updated_IoTglove.h"
 
+#define STRINGIFY_VALUE(value) #value
+#define STRINGIFY(value) STRINGIFY_VALUE(value)
+
+const char FIRMWARE_BUILD_ID[] =
+  "firmware=" FIRMWARE_VERSION
+  ";code=" STRINGIFY(FIRMWARE_VERSION_CODE)
+  ";git=" BUILD_GIT_COMMIT
+  ";esp32=" BUILD_ESP32_CORE
+  ";platformio=" BUILD_PLATFORMIO_CORE
+  ";platform=" BUILD_PLATFORM
+  ";libs=" BUILD_LIBRARY_SUMMARY;
+
 //************************************************ Core1 ********************************************************************
 /**
  * @brief IoT Glove Intialize
@@ -27,6 +39,9 @@ void IotGloveInit()
   has2wifi.SetDebugPrint(DebugOutput());
   has2wifi.Setup(glove_ssid, glove_pass); // direct WiFi connection
   DebugInit();
+  DebugPrint("Build: ");
+  DebugPrintln(FIRMWARE_BUILD_ID);
+  ota.setLogStream(*DebugOutput());
   ota.setOnSuccess([]() {
     ota_success_blink();
     has2wifi.Send((String)(const char *)my["device_name"], "device_state", "setting");
@@ -63,7 +78,9 @@ void loop()
   }
 
   DebugPoll();
+  UpdateSurConnectFlow();
   TimerRun();
+  UpdateVibration();
   BeetleScanWifi();
 
   if (game_state == activate)

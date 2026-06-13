@@ -136,6 +136,12 @@ void IrReceive()
 {
   if (irrecv.decode(&results))
   {
+    if (sur_connect_pending)
+    {
+      irrecv.resume();
+      return;
+    }
+
     ir_decode_data = IrDecoding((uint32_t)results.value);
     if ((!ir_receive_error) && (ir_decode_data != "error"))
     {
@@ -188,8 +194,9 @@ void IrReceive()
             }
 
             unsigned long ttl_ms = (unsigned long)revival_time * 1000UL;
-            if (ShouldSendRevivalCooldown(ir_decode_data, ttl_ms))
+            if (!sur_connect_pending && ShouldSendRevivalCooldown(ir_decode_data, ttl_ms))
             {
+              StartSurConnect();
               has2wifi.Situation(ir_decode_data, "revival_cooldown");
             }
           }

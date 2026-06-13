@@ -22,8 +22,14 @@ char current_hmi_page[20];
 #define REVIVAL_HELP_RECORDS 10
 #define REVIVAL_TICK_PER_SEC 10
 #define REVIVAL_FINISH_DISPLAY_MS 1500
-#define TAG_CAPTURE_MIN_MS 1000
-#define TAG_CAPTURE_TIMEOUT_MS 3000
+#define TAG_CAPTURE_MIN_MS 3000
+#define TAG_CAPTURE_TIMEOUT_MS 5000
+#define SUR_CONNECT_MIN_MS 3000
+#define SUR_CONNECT_TIMEOUT_MS 5000
+#define PAGE_CHANGE_VIBRATION_ON_MS 120
+#define PAGE_CHANGE_VIBRATION_GAP_MS 80
+#define PAGE_CHANGE_VIBRATION_TOTAL_MS (PAGE_CHANGE_VIBRATION_ON_MS * 2 + PAGE_CHANGE_VIBRATION_GAP_MS)
+#define PAGE_CHANGE_VIBRATION_INTENSITY 3
 #define DEFAULT_REVIVAL_TIME_SEC 30
 #define DEBUG_TELNET_PORT 23
 #define ROLE_SEND_RETRY_MS 2000
@@ -45,6 +51,10 @@ unsigned long last_role_send_ms = 0;
 int last_revival_cooldown_count = 0;
 bool tag_capture_pending = false;
 unsigned long tag_capture_started_ms = 0;
+bool sur_connect_pending = false;
+unsigned long sur_connect_started_ms = 0;
+bool page_change_vibration_active = false;
+unsigned long page_change_vibration_started_ms = 0;
 
 typedef enum GameState
 {
@@ -88,6 +98,8 @@ void DebugPrintln(unsigned long value);
 void DebugPrintln(unsigned long value, int base);
 void DebugPrintf(const char *format, ...);
 
+extern const char FIRMWARE_BUILD_ID[];
+
 //*=============================== Sensor ===============================*
 /**
  * @brief IoT 글러브에 사용되는 센서, 모듈 세팅
@@ -115,12 +127,16 @@ void WifiForceLowRateInit();
 HAS2_Wifi has2wifi("http://172.30.1.43");
 
 //================================ OTA ==================================
+#define OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/manifest-prd.json"
+#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.1/manifest-dev.json"
+#define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-rc.1/manifest-rc.json"
+
 SecureOTA ota(
   "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.bin",
   "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/version.txt",
   "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.sig",
   HMAC_SECRET,
-  FIRMWARE_VER
+  FIRMWARE_VERSION_CODE
 );
 
 bool activate_bool;
@@ -139,10 +155,16 @@ void ResetRevivalTimer();
 void StartRevivalTimer();
 void UpdateRevivalTimer();
 void UpdateTagCaptureFlow();
+void StartSurConnect();
+void StopSurConnect();
+void UpdateSurConnectFlow();
+void ShowRolePage();
 void ApplyRevivalCooldownChange(int previous_count);
 bool IsFinalLifeTaken();
 void StartPendingRevivalVibration();
 void StopPendingRevivalVibration();
+void StartPageChangeVibration();
+void UpdateVibration();
 
 //=============================== Neopixel ===============================
 #define NUMPIXELS 4

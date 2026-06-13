@@ -1,0 +1,13 @@
+{
+  "name": "Nextion",
+  "version": "0.0.0+vendor.20260326",
+  "description": "Vendored ITEADLIB Arduino Nextion snapshot used by updated_IoTglove",
+  "keywords": ["nextion", "hmi", "display"],
+  "authors": [
+    {
+      "name": "ITEAD Studio"
+    }
+  ],
+  "frameworks": ["arduino"],
+  "platforms": ["espressif32"]
+}

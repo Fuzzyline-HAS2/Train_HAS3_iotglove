@@ -1,0 +1,142 @@
+name: Firmware Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_CORE_VERSION: "6.1.19"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          python3 scripts/check_release_version.py --tag "${TAG}"
+          CHANNEL="$(python3 scripts/firmware_metadata.py channel "${TAG}")"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+          echo "manifest=manifest-${CHANNEL}.json" >> "${GITHUB_OUTPUT}"
+
+      - name: Check required secrets
+        shell: bash
+        env:
+          HMAC_SECRET_VALUE: ${{ secrets.HMAC_SECRET }}
+          GLOVE_WIFI_SSID_VALUE: ${{ secrets.GLOVE_WIFI_SSID }}
+          GLOVE_WIFI_PASS_VALUE: ${{ secrets.GLOVE_WIFI_PASS }}
+          HAS2_LIB_TOKEN_VALUE: ${{ secrets.HAS2_LIB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${HMAC_SECRET_VALUE}" || (echo "Missing HMAC_SECRET" && exit 1)
+          test -n "${GLOVE_WIFI_SSID_VALUE}" || (echo "Missing GLOVE_WIFI_SSID" && exit 1)
+          test -n "${GLOVE_WIFI_PASS_VALUE}" || (echo "Missing GLOVE_WIFI_PASS" && exit 1)
+          test -n "${HAS2_LIB_TOKEN_VALUE}" || (echo "Missing HAS2_LIB_TOKEN" && exit 1)
+
+      - name: Generate secrets.h
+        shell: bash
+        env:
+          HMAC_SECRET_VALUE: ${{ secrets.HMAC_SECRET }}
+          GLOVE_WIFI_SSID_VALUE: ${{ secrets.GLOVE_WIFI_SSID }}
+          GLOVE_WIFI_PASS_VALUE: ${{ secrets.GLOVE_WIFI_PASS }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import pathlib
+
+          def c_string(name):
+              value = os.environ[name]
+              return value.replace("\\", "\\\\").replace('"', '\\"')
+
+          out = pathlib.Path("secrets.h")
+          out.write_text(
+              "#ifndef _SECRETS_H_\n"
+              "#define _SECRETS_H_\n\n"
+              f"#define HMAC_SECRET \"{c_string('HMAC_SECRET_VALUE')}\"\n"
+              f"#define GLOVE_WIFI_SSID \"{c_string('GLOVE_WIFI_SSID_VALUE')}\"\n"
+              f"#define GLOVE_WIFI_PASS \"{c_string('GLOVE_WIFI_PASS_VALUE')}\"\n\n"
+              "#endif\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Build Docker image
+        run: docker build -t iotglove-builder .
+
+      - name: Build firmware
+        shell: bash
+        env:
+          HAS2_LIB_TOKEN: ${{ secrets.HAS2_LIB_TOKEN }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e HAS2_LIB_TOKEN="${HAS2_LIB_TOKEN}" \
+            -e GITHUB_SHA="${GITHUB_SHA}" \
+            -e GITHUB_REF_NAME="${GITHUB_REF_NAME}" \
+            -e GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
+            -e PLATFORMIO_CORE_VERSION="${PLATFORMIO_CORE_VERSION}" \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            iotglove-builder \
+            /bin/sh -lc 'set -eu
+              git config --global --add safe.directory /work
+              git config --global url."https://x-access-token:${HAS2_LIB_TOKEN}@github.com/Fuzzyline-HAS2/".insteadOf "https://github.com/Fuzzyline-HAS2/"
+              pio run -e ttgo-t8-v171
+            '
+
+      - name: Create release artifacts
+        shell: bash
+        env:
+          HMAC_SECRET: ${{ secrets.HMAC_SECRET }}
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          TAG: ${{ steps.release.outputs.tag }}
+          MANIFEST: ${{ steps.release.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp ".pio/build/ttgo-t8-v171/firmware.bin" "dist/update.bin"
+          python3 scripts/sign_firmware.py --firmware dist/update.bin --out dist/update.sig
+          python3 scripts/generate_build_info.py \
+            --firmware dist/update.bin \
+            --signature dist/update.sig \
+            --output dist/build-info.json \
+            --channel "${CHANNEL}"
+          python3 scripts/make_manifest.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${TAG}" \
+            --channel "${CHANNEL}" \
+            --firmware dist/update.bin \
+            --signature dist/update.sig \
+            --build-info dist/build-info.json \
+            --out "dist/${MANIFEST}"
+          ls -l dist
+
+      - name: Upload GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          MANIFEST: ${{ steps.release.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          gh release view "${TAG}" >/dev/null 2>&1 || \
+            gh release create "${TAG}" --verify-tag --title "${TAG}" --notes "Automated firmware release ${TAG}"
+          gh release upload "${TAG}" \
+            dist/update.bin \
+            dist/update.sig \
+            "dist/${MANIFEST}" \
+            dist/build-info.json \
+            --clobber

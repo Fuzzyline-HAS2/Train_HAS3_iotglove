@@ -1,0 +1,176 @@
+# AI Firmware Guide
+
+이 문서는 다음 AI 또는 개발자가 `updated_IoTglove` 펌웨어를 수정하기 전에 확인해야 하는 운영 규칙이다.
+
+## 기본 원칙
+
+- 대상 보드는 TTGO T8 v1.7.1 / ESP32 계열이며, 현재 빌드 기준 보드는 `esp32dev`다.
+- Nextion HMI는 `glove.HMI` 기준으로 동작한다.
+- `nextion_tft_upload.ino`의 `Serial.*`은 PC-Nextion TFT 업로드 프로토콜이므로 Telnet debug로 바꾸지 않는다.
+- 일반 디버그 로그는 `__DEBUG__`가 켜졌을 때 Telnet debug 계층으로 출력한다.
+- 실제 WiFi/HMAC 값은 `secrets.h`에만 둔다. `secrets.h`는 git에 올리지 않는다.
+- 변경 후에는 가능한 한 Arduino CLI 컴파일과 PlatformIO Docker 빌드를 모두 확인한다.
+
+## Version and OTA
+
+GitHub tag는 SemVer를 사용한다.
+
+```text
+prd: v1.2.4
+dev: v1.2.4-dev.1
+rc:  v1.2.4-rc.1
+```
+
+펌웨어는 SemVer 문자열을 직접 비교하지 않는다. OTA 비교는 `version_code` 정수만 사용한다.
+
+```text
+version_code =
+  major * 10000000
++ minor * 100000
++ patch * 1000
++ release_type * 100
++ build_number
+
+release_type:
+dev = 1
+rc  = 2
+prd = 3
+```
+
+예시:
+
+```text
+v1.2.4-dev.1 -> 10204101
+v1.2.4-dev.2 -> 10204102
+v1.2.4-rc.1  -> 10204201
+v1.2.4       -> 10204300
+```
+
+펌웨어 버전 상수는 `library_and_pin.h`에 둔다.
+
+```cpp
+#define FIRMWARE_VERSION "1.2.4-dev.1"
+#define FIRMWARE_VERSION_CODE 10204101
+```
+
+OTA는 `manifest.version_code > FIRMWARE_VERSION_CODE`일 때만 실행한다.
+
+## Release Manifest
+
+Release에는 다음 asset을 올린다.
+
+```text
+update.bin
+update.sig
+manifest-dev.json 또는 manifest-rc.json 또는 manifest-prd.json
+build-info.json
+```
+
+manifest 예시:
+
+```json
+{
+  "channel": "dev",
+  "version": "1.2.4-dev.1",
+  "version_code": 10204101,
+  "firmware_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.1/update.bin",
+  "signature_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.1/update.sig",
+  "build_info_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.1/build-info.json",
+  "size": 1217716,
+  "firmware_sha256": "...",
+  "signature_sha256": "...",
+  "build_info_sha256": "..."
+}
+```
+
+`update.sig`는 hex 문자열이 아니라 raw 32바이트 HMAC-SHA256 파일이다.
+
+## Reproducible Build
+
+공식 Release 빌드는 GitHub Actions가 만든 결과물만 사용한다. 로컬 Docker 빌드는 검증용이다.
+
+빌드 기준:
+
+- Docker base image: `python:3.11.9-slim-bookworm`
+- PlatformIO Core: `6.1.19`
+- PlatformIO platform: `https://github.com/pioarduino/platform-espressif32.git#55.03.38`
+- ESP32 Arduino core: `3.3.8`
+- Board: `esp32dev`
+- Framework: `arduino`
+
+로컬 Docker 검증 예시:
+
+```powershell
+docker build -t iotglove-builder .
+docker run --rm -v ${PWD}:/work iotglove-builder pio run -e ttgo-t8-v171
+```
+
+private HAS2 라이브러리를 받아야 하므로 로컬 Docker에서 완전 빌드하려면 GitHub 인증 설정이 필요하다.
+
+## Library Policy
+
+전역 Arduino libraries 폴더에 의존하지 않는다.
+
+현재 펌웨어에서 사용하는 라이브러리:
+
+- `HAS2_Wifi`: private Git repo `Fuzzyline-HAS2/HAS2_Wifi`, tag `v1.0.0`
+- `Adafruit_NeoPixel`: PlatformIO registry exact version `1.15.5`
+- `ArduinoJson`: PlatformIO registry exact version `7.4.3`
+- `IRremoteESP8266`: PlatformIO registry exact version `2.9.0`
+- `Pangodream_18650_CL`: upstream Git commit `e1be2aa402bd19473aac2a843c9aeb4f274418c7`
+- `Nextion`: repo 내부 `lib/vendor/Nextion`
+- `SimpleTimer`: repo 내부 `lib/vendor/SimpleTimer`
+- `SecureOTA`: 펌웨어 repo 내부 local module
+
+개인 라이브러리 관리 규칙:
+
+- `HAS2_Wifi`, `HAS2_MQTT`, `HAS2_Vibration`은 각각 private Git repo로 관리한다.
+- 초기 tag는 모두 `v1.0.0`.
+- 현재 펌웨어의 `platformio.ini`에는 실제 사용 중인 `HAS2_Wifi#v1.0.0`만 넣는다.
+- `HAS2_MQTT`, `HAS2_Vibration`은 사용 전까지 펌웨어 의존성에 넣지 않는다.
+- 사용자가 선택한 정책에 따라 기존 하드코딩 기본 WiFi 값은 유지하지만, public repo로 전환하면 안 된다.
+
+전역 Arduino libraries 폴더의 현재 `HAS2_*` 라이브러리를 repo용 폴더로 준비하려면:
+
+```powershell
+python scripts\prepare_has2_libraries.py --out build\has2-libraries
+```
+
+생성된 각 폴더를 private GitHub repo에 commit한 뒤 `v1.0.0` tag를 만든다.
+
+## GitHub Actions Secrets
+
+Release workflow에는 다음 secrets가 필요하다.
+
+```text
+HMAC_SECRET
+GLOVE_WIFI_SSID
+GLOVE_WIFI_PASS
+HAS2_LIB_TOKEN
+```
+
+`HAS2_LIB_TOKEN`은 private `Fuzzyline-HAS2/HAS2_Wifi` repo를 읽을 수 있는 최소 권한 PAT로 둔다.
+
+## Server Contract
+
+OTA 트리거는 기존처럼 `device_state=github`를 사용한다.
+
+서버 DB 필드:
+
+| field | value | description |
+| --- | --- | --- |
+| `ota_channel` | `dev`, `rc`, `prd` | 장갑이 받을 OTA 채널 |
+| `ota_manifest_url` | URL or empty | 특정 manifest 직접 지정 |
+
+OTA 실패 시 펌웨어는 `device_state=ota_error`를 서버로 전송한다.
+
+## Verification Checklist
+
+- Arduino CLI compile 통과
+- Docker `pio run -e ttgo-t8-v171` 통과
+- PlatformIO 빌드가 보조 스케치 폴더를 컴파일하지 않는지 확인
+- `.bin` 안에 `FIRMWARE_VERSION`, `BUILD_GIT_COMMIT`, `BUILD_ESP32_CORE`, `BUILD_PLATFORMIO_CORE` 문자열이 들어있는지 확인
+- Release asset의 manifest/build-info/hash/size 일치 확인
+- `version_code <= FIRMWARE_VERSION_CODE`이면 OTA skip 확인
+- channel mismatch이면 OTA 중단 및 `ota_error` 확인
+- signature/bin HMAC mismatch이면 OTA 실패 확인
