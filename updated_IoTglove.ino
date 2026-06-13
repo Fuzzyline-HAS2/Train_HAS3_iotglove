@@ -17,13 +17,16 @@
  */
 void IotGloveInit()
 {
-  Serial.begin(115200);
+  NextionTftUploadInit();
   MySerial1.begin(115200, SERIAL_8N1, SERIAL1_RX_PIN, SERIAL1_TX_PIN); // Beetle과 UART 통신 연결 세팅
   nexInit();                                                           // 디스플레이 세팅
   MySerial2.begin(9600, SERIAL_8N1, SERIAL2_RX_PIN, SERIAL2_TX_PIN);
   // has2wifi.Setup();     // 사무실 와이파이
   // has2wifi.Setup("city"); // 쌈지 시티 와이파이
-  has2wifi.Setup("badland");  // 쌈지 배드랜드 와이파이
+  WifiForceLowRateInit();                 // 약신호 링크 안정화 (WiFi.begin 전)
+  has2wifi.SetDebugPrint(DebugOutput());
+  has2wifi.Setup(glove_ssid, glove_pass); // direct WiFi connection
+  DebugInit();
   ota.setOnSuccess([]() {
     ota_success_blink();
     has2wifi.Send((String)(const char *)my["device_name"], "device_state", "setting");
@@ -44,6 +47,8 @@ void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   delay(500);
+  NextionTftUploadInit();
+  NextionTftUploadStartupWindow(4000);
   IotGloveInit();
 }
 
@@ -52,6 +57,12 @@ void setup()
  */
 void loop()
 {
+  if (NextionTftUploadPoll())
+  {
+    return;
+  }
+
+  DebugPoll();
   TimerRun();
   BeetleScanWifi();
 

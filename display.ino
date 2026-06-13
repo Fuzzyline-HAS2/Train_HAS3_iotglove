@@ -1,204 +1,112 @@
 #include "updated_IoTglove.h"
 
-/**
- * @brief 디스플레이 화면 초기화
- */
-void DisplaySet()
+int ClampDisplayValue(int value, int min_value, int max_value)
 {
-    String cmd = "";
-    if ((String)(const char *)my["role"] != "tagger")
+    if (value < min_value)
     {
-        // life_chip 초기화
-        cmd = "player.life_chip.val=" + (String)(const char *)my["life_chip"];
-        sendCommand(cmd.c_str());
-        // BatteryPack 초기화
-        cmd = "player.BatteryPack.pic=player.battery_pic.val+" + (String)(const char *)my["battery_pack"];
-        sendCommand(cmd.c_str());
-
-        // LifeChip 초기화
-        if ((int)my["life_chip"] > 1)
-        {
-            cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
-            sendCommand(cmd.c_str());
-        }
-        else
-        {
-            cmd = "player.LifeChip.pic=player.life_chip_pic.val";
-            sendCommand(cmd.c_str());
-        }
-
-        // level 초기화
-        cmd = "player.level.val=" + (String)(const char *)my["lv"];
-        sendCommand(cmd.c_str());
-
-        // exp 초기화
-        cmd = "player.exp.val=" + (String)(const char *)my["exp"];
-        sendCommand(cmd.c_str());
+        return min_value;
     }
-    else
+    if (value > max_value)
     {
-        // taken_chip 초기화
-        cmd = "tagger.taken_chip.val=" + (String)(const char *)my["taken_chip"];
-        sendCommand(cmd.c_str());
-
-        // TakenChip 초기화
-        if ((int)my["taken_chip"] > 0)
-        {
-            cmd = "tagger.TakenChip.pic=tagger.taken_chip_pic.val+1";
-            sendCommand(cmd.c_str());
-        }
-        else
-        {
-            cmd = "tagger.TakenChip.pic=tagger.taken_chip_pic.val";
-            sendCommand(cmd.c_str());
-        }
-
-        // level 초기화
-        cmd = "tagger.level.val=" + (String)(const char *)my["lv"];
-        sendCommand(cmd.c_str());
-
-        // exp 초기화
-        cmd = "tagger.exp.val=" + (String)(const char *)my["exp"];
-        sendCommand(cmd.c_str());
+        return max_value;
     }
+    return value;
 }
 
-/**
- * @brief 디스플레이에 변화를 주거나 변화가 있을시 실행
- */
-// void DisplayCheck()
-// {
-//     if (MySerial2.available() > 0)
-//     {
-//         String nextion_string = MySerial2.readStringUntil(' ');
-//         Serial.print("Display Out Run : ");
-//         Serial.println(nextion_string);
-//         if (nextion_string.startsWith("H_"))
-//         {
-//             nextion_string = nextion_string.substring(2);
-//             Serial.print("Nextion String : ");
-//             Serial.println(nextion_string);
-//             NextionReceived(&nextion_string);
-//         }
-//     }
-// }
+int JsonIntOrDefault(const char *key, int fallback)
+{
+    if (my[key].isNull())
+    {
+        return fallback;
+    }
+    return my[key].as<int>();
+}
+
+void SendHmiValue(const char *target, int value)
+{
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "%s.val=%d", target, value);
+    sendCommand(cmd);
+}
+
+void SendHmiPic(const char *page, const char *component, const char *base_var, int value, int min_value, int max_value)
+{
+    int clamped = ClampDisplayValue(value, min_value, max_value);
+    char cmd[96];
+    snprintf(cmd, sizeof(cmd), "%s.%s.pic=%s.%s.val+%d", page, component, page, base_var, clamped);
+    sendCommand(cmd);
+}
+
+void UpdatePageBattery(const char *page)
+{
+    int battery_pack = ClampDisplayValue(JsonIntOrDefault("battery_pack", 0), 0, 4);
+    char target[40];
+    snprintf(target, sizeof(target), "%s.vBatteryPack", page);
+    SendHmiValue(target, battery_pack);
+    SendHmiPic(page, "pBatteryPack", "vBatPicNum", battery_pack, 0, 4);
+}
+
+void UpdateHmiLanguage()
+{
+    const char *selected_language = shift_machine["selected_language"].as<const char *>();
+    int hmi_language = (selected_language != NULL && strcmp(selected_language, "EN") == 0) ? 0 : 1;
+    SendHmiValue("pgInfo.vLanguage", hmi_language);
+}
+
+void UpdateHmiBattery()
+{
+    UpdatePageBattery("pgSurvivor");
+    UpdatePageBattery("pgGhost");
+    UpdatePageBattery("pgRevival");
+}
+
+void UpdateHmiResults()
+{
+    int level = JsonIntOrDefault("lv", 0);
+    int lives_lost = JsonIntOrDefault("lives_lost", 0);
+    int batteries_gained = JsonIntOrDefault("batteries_gained", 0);
+    int round_taken_chip = JsonIntOrDefault("round_taken_chip", 0);
+
+    SendHmiPic("pgSurResult", "pSurLevel", "vSurLvlPicNum", level, 0, 99);
+    SendHmiPic("pgSurResult", "pSurTakenLives", "vSurLivPicNum", lives_lost, 0, 30);
+    SendHmiPic("pgSurResult", "pBatCnt", "vBatTotPicNum", batteries_gained, 0, 20);
+    SendHmiPic("pgTagResult", "pTagLevel", "vTagLvlPicNum", level, 0, 99);
+    SendHmiPic("pgTagResult", "pTagTakenLives", "vTagLivPicNum", round_taken_chip, 0, 30);
+}
+
+void AddRevivalGaugeBonus(int seconds)
+{
+    if (seconds <= 0)
+    {
+        return;
+    }
+
+    int bonus_ticks = seconds * REVIVAL_TICK_PER_SEC;
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "pgGhost.vTick.val=pgGhost.vTick.val+%d", bonus_ticks);
+    sendCommand(cmd);
+}
+
+void DisplaySet()
+{
+    UpdateHmiLanguage();
+    UpdateHmiBattery();
+    UpdateHmiResults();
+    SendHmiValue("pgGhost.vReviveTimeMax", JsonIntOrDefault("revival_time", DEFAULT_REVIVAL_TIME_SEC));
+}
 
 void DisplayCheck()
 {
     while (MySerial2.available() > 0)
     {
-        if (MySerial2.peek() != 'H')
-        {
-            MySerial2.read();
-            continue;
-        }
-        if (MySerial2.available() < 3) return;
-        MySerial2.read(); // 'H' 소비
-        if (MySerial2.read() == '_')
-        {
-            String nextion_string = MySerial2.readStringUntil(' ');
-            Serial.print("Nextion String : ");
-            Serial.println(nextion_string);
-            NextionReceived(&nextion_string);
-        }
+        MySerial2.read();
     }
 }
 
-/**
- * @brief 디스플레이에서 오는 Serial을 확인
- *
- * @param nextion_string Serial 문자열 데이터
- */
-void NextionReceived(String *nextion_string)
+void PageChange(const char *page)
 {
-    if (*nextion_string == "lifesend")
-    {
-        IrSend();
-        PageChange("lifechip_send");
-        delay(4000);
-        PageChange("player");
-    }
-    else if (*nextion_string == "lifechip_receive")
-    {
-        if ((String)(const char *)my["role"] == "ghost")
-        {
-            PageChange("revival");
-        }
-        else if ((String)(const char *)my["role"] == "player")
-        {
-            PageChange("player");
-            ir_receive_timer.enable(ir_receive_timer_id);
-        }
-        has2wifi.Situation(ir_decode_data, "send_life");
-        if ((String)(const char *)my["role"] == "ghost")
-        {
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-        }
-        lifechip_receive = false;
-    }
-    else if (*nextion_string == "revival")
-    {
-        revival = false;
-        irrecv.resume();
-        if ((int)my["life_chip"] > 0)
-        {
-            PageChange("player");
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "player");
-            ir_receive_timer.enable(ir_receive_timer_id);
-        }
-        else
-        {
-            PageChange("ghost");
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "ghost");
-            ir_receive_timer.enable(ir_receive_timer_id);
-        }
-    }
-    else if (*nextion_string == "hacking")
-    {
-        ir_receive_timer.disable(ir_receive_timer_id);
-    }
-    else if (*nextion_string == "die")
-    {
-        hacking = false;
-        if ((int)my["life_chip"] > 0)
-        {
-            has2wifi.Situation(ir_decode_data, "taken");
-        }
-        if ((int)my["life_chip"] > 1)
-        {
-            PageChange("revival");
-            has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-        }
-        else
-        {
-            PageChange("ghost");
-        }
-    }
-    else if (*nextion_string == "messege_exit")
-    {
-        if ((String)(const char *)my["role"] == "player")
-        {
-            PageChange("player");
-        }
-        else if ((String)(const char *)my["role"] == "ghost")
-        {
-            Serial.println("messege ghost");
-            PageChange("ghost");
-        }
-        has2wifi.Send((String)(const char *)my["device_name"], "message_sender", "no");
-    }
-    else
-    {
-        Serial.print("Error String : ");
-        Serial.println(*nextion_string);
-    }
-}
-
-void PageChange(String page)
-{
-    static String cur_page = "";
-
-    String cmd = "page " + page;
-    sendCommand(cmd.c_str());
-    cur_page = page;
+    char cmd[32];
+    snprintf(cmd, sizeof(cmd), "page %s", page);
+    sendCommand(cmd);
+    snprintf(current_hmi_page, sizeof(current_hmi_page), "%s", page);
 }

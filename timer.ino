@@ -25,7 +25,9 @@ void TimerRun()
 void WifiTimerFunc()
 {
   // has2wifi.Connect("city");
-  has2wifi.Connect("badland");
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(glove_ssid, glove_pass); // badland_auto 다이렉트 재연결 (rate는 연결 이벤트에서 재적용)
+  }
   has2wifi.Loop(DataChange);
 
 }

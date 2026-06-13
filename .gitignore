@@ -1,6 +1,14 @@
 secrets.h
 scripts/secrets.py
-build/
+
+/ArduinoBuild/
+/build/
+/logs/
+
+/.claude/
+/.omc/
+/.omcplans/
+/nextion_tft_relay/
+
 __pycache__/
 *.elf
-# update.bin / update.sig / version.txt 는 제외하지 않음 (기기가 다운로드해야 함)

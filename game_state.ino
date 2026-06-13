@@ -1,27 +1,104 @@
 #include "updated_IoTglove.h"
 
-void ChangeLanguage()
+int GameJsonInt(const char *key, int fallback)
 {
-    String cmd = "";
-    if ((String)(const char *)shift_machine["selected_language"] == "EN")
+    if (my[key].isNull())
     {
-        cmd = "start.language.val=1";
+        return fallback;
     }
-    else
-    {
-        cmd = "start.language.val=0";
-    }
-    sendCommand(cmd.c_str());
+    return my[key].as<int>();
 }
 
-/**
- * @brief DB gamestate가 setting 일 때 동작하는 코드
- */
-void SettingFunc()
+const char *GameJsonText(const char *key)
 {
-    game_state = setting;
-    MySerial1.print("setting ");
+    const char *value = my[key].as<const char *>();
+    return value == NULL ? "" : value;
+}
 
+bool TextEquals(const char *value, const char *expected)
+{
+    if (value == NULL)
+    {
+        value = "";
+    }
+    if (expected == NULL)
+    {
+        expected = "";
+    }
+    return strcmp(value, expected) == 0;
+}
+
+const char *CurrentRole()
+{
+    return GameJsonText("role");
+}
+
+const char *CurrentDeviceState()
+{
+    return GameJsonText("device_state");
+}
+
+const char *CurrentGameState()
+{
+    return GameJsonText("game_state");
+}
+
+bool CurrentDeviceStateIs(const char *state)
+{
+    return TextEquals(CurrentDeviceState(), state);
+}
+
+bool CurrentGameStateIs(const char *state)
+{
+    return TextEquals(CurrentGameState(), state);
+}
+
+bool IsPlayerRole(const char *role)
+{
+    return TextEquals(role, "player");
+}
+
+bool IsTaggerRole(const char *role)
+{
+    return TextEquals(role, "tagger");
+}
+
+bool IsRevivalRole(const char *role)
+{
+    return TextEquals(role, "revival") || TextEquals(role, "ghost");
+}
+
+bool IsRevivalRole(const String &role)
+{
+    return IsRevivalRole(role.c_str());
+}
+
+bool IsFinalLifeTaken()
+{
+    if (my["life_chip"].isNull())
+    {
+        return false;
+    }
+    return my["life_chip"].as<int>() <= 1;
+}
+
+void StartPendingRevivalVibration()
+{
+    pending_revival_vibration = true;
+}
+
+void StopPendingRevivalVibration()
+{
+    pending_revival_vibration = false;
+}
+
+void SendRoleRequest(const char *role)
+{
+    has2wifi.Send((String)(const char *)my["device_name"], "role", role);
+}
+
+void ResetActivateSideEffects(bool clear_revival_help_records)
+{
     motor_on = false;
     MotorStop();
     if (neopixel_timer.isEnabled(neopixel_timer_id))
@@ -29,6 +106,293 @@ void SettingFunc()
         neopixel_timer.deleteTimer(neopixel_timer_id);
     }
     ir_receive_timer.disable(ir_receive_timer_id);
+    tag_capture_pending = false;
+    hacking = false;
+    StopPendingRevivalVibration();
+    ResetRevivalTimer();
+    if (clear_revival_help_records)
+    {
+        ClearRevivalHelpRecords();
+    }
+}
+
+void ChangeLanguage()
+{
+    UpdateHmiLanguage();
+}
+
+void ResetRevivalTimer()
+{
+    revival = false;
+    revival_timer_active = false;
+    revival_finish_page = false;
+    revival_finish_sent = false;
+    revival_started_ms = 0;
+    revival_bonus_ms = 0;
+    revival_finish_started_ms = 0;
+    last_role_send_ms = 0;
+    last_revival_cooldown_count = 0;
+}
+
+void StartRevivalTimer()
+{
+    int revival_time = GameJsonInt("revival_time", DEFAULT_REVIVAL_TIME_SEC);
+    if (revival_time <= 0)
+    {
+        revival_time = DEFAULT_REVIVAL_TIME_SEC;
+    }
+
+    revival = true;
+    revival_timer_active = true;
+    revival_finish_page = false;
+    revival_finish_sent = false;
+    revival_started_ms = millis();
+    revival_bonus_ms = 0;
+    revival_finish_started_ms = 0;
+    last_role_send_ms = 0;
+    last_revival_cooldown_count = GameJsonInt("revival_cooldown_count", 0);
+
+    ir_receive_timer.disable(ir_receive_timer_id);
+    lightColor(skyblue);
+    sendCommand("sleep=0");
+    UpdateHmiBattery();
+    SendHmiValue("pgGhost.vReviveTimeMax", revival_time);
+    SendHmiValue("pgGhost.vTick", 0);
+    PageChange("pgGhost");
+}
+
+void UpdateRevivalTimer()
+{
+    if (!revival_timer_active || !IsRevivalRole(CurrentRole()))
+    {
+        return;
+    }
+
+    unsigned long revival_duration_ms = (unsigned long)GameJsonInt("revival_time", DEFAULT_REVIVAL_TIME_SEC) * 1000UL;
+    if (revival_duration_ms == 0)
+    {
+        revival_duration_ms = (unsigned long)DEFAULT_REVIVAL_TIME_SEC * 1000UL;
+    }
+
+    unsigned long now = millis();
+    unsigned long elapsed_ms = now - revival_started_ms + revival_bonus_ms;
+    if (!revival_finish_page && elapsed_ms >= revival_duration_ms)
+    {
+        revival_finish_page = true;
+        revival_finish_started_ms = now;
+        UpdateHmiBattery();
+        PageChange("pgRevival");
+    }
+
+    if (revival_finish_page && now - revival_finish_started_ms >= REVIVAL_FINISH_DISPLAY_MS)
+    {
+        if (!revival_finish_sent || now - last_role_send_ms >= ROLE_SEND_RETRY_MS)
+        {
+            SendRoleRequest("player");
+            revival_finish_sent = true;
+            last_role_send_ms = now;
+        }
+    }
+}
+
+void ApplyRevivalCooldownChange(int previous_count)
+{
+    int current_count = GameJsonInt("revival_cooldown_count", 0);
+    if (!revival_timer_active)
+    {
+        last_revival_cooldown_count = current_count;
+        return;
+    }
+
+    if (current_count < previous_count)
+    {
+        last_revival_cooldown_count = current_count;
+        return;
+    }
+
+    int delta = current_count - previous_count;
+    int reduce_time = GameJsonInt("revival_reduce_time", 0);
+    if (delta > 0 && reduce_time > 0)
+    {
+        unsigned long bonus_ms = (unsigned long)delta * (unsigned long)reduce_time * 1000UL;
+        revival_bonus_ms += bonus_ms;
+        AddRevivalGaugeBonus(delta * reduce_time);
+    }
+
+    last_revival_cooldown_count = current_count;
+}
+
+void StartTagCapture()
+{
+    tag_capture_pending = true;
+    tag_capture_started_ms = millis();
+    PageChange("pgTagCapture");
+}
+
+void UpdateTagCaptureFlow()
+{
+    if (!tag_capture_pending)
+    {
+        return;
+    }
+
+    unsigned long elapsed_ms = millis() - tag_capture_started_ms;
+    bool server_full = GameJsonInt("taken_chip", 0) >= GameJsonInt("max_taken_chip", 1);
+    bool min_elapsed = elapsed_ms >= TAG_CAPTURE_MIN_MS;
+    bool timeout_elapsed = elapsed_ms >= TAG_CAPTURE_TIMEOUT_MS;
+
+    if ((server_full && min_elapsed) || timeout_elapsed)
+    {
+        tag_capture_pending = false;
+        PageChange("pgTagFull");
+    }
+}
+
+void ShowRolePage()
+{
+    const char *role = CurrentRole();
+    sendCommand("sleep=0");
+
+    if (IsPlayerRole(role))
+    {
+        StopPendingRevivalVibration();
+        ResetRevivalTimer();
+        hacking = false;
+        lightColor(green);
+        PageChange("pgSurvivor");
+        irrecv.resume();
+        ir_receive_timer.enable(ir_receive_timer_id);
+        UpdateHmiBattery();
+    }
+    else if (IsTaggerRole(role))
+    {
+        StopPendingRevivalVibration();
+        ResetRevivalTimer();
+        hacking = false;
+        lightColor(purple);
+        ir_receive_timer.disable(ir_receive_timer_id);
+        if (GameJsonInt("taken_chip", 0) >= GameJsonInt("max_taken_chip", 1))
+        {
+            PageChange("pgTagFull");
+        }
+        else
+        {
+            PageChange("pgTagEmpty");
+        }
+    }
+    else if (IsRevivalRole(role))
+    {
+        StopPendingRevivalVibration();
+        motor_on = false;
+        MotorStop();
+        hacking = false;
+        if (!revival_timer_active)
+        {
+            StartRevivalTimer();
+        }
+        else
+        {
+            ir_receive_timer.disable(ir_receive_timer_id);
+            lightColor(skyblue);
+            sendCommand("sleep=0");
+            if (!TextEquals(current_hmi_page, "pgGhost") && !TextEquals(current_hmi_page, "pgRevival"))
+            {
+                PageChange("pgGhost");
+            }
+        }
+    }
+}
+
+void ShowResultPage()
+{
+    MotorStop();
+    sendCommand("sleep=0");
+    UpdateHmiResults();
+
+    if (IsTaggerRole(CurrentRole()))
+    {
+        lightColor(purple);
+        PageChange("pgTagResult");
+    }
+    else
+    {
+        lightColor(green);
+        PageChange("pgSurResult");
+    }
+}
+
+void HandleLifeChipChange()
+{
+    if (my["life_chip"].isNull())
+    {
+        return;
+    }
+
+    int life_chip = GameJsonInt("life_chip", -1);
+    if (game_state != activate || !CurrentDeviceStateIs("activate") || !IsPlayerRole(CurrentRole()))
+    {
+        return;
+    }
+
+    if (life_chip <= 0)
+    {
+        StartPendingRevivalVibration();
+        SendRoleRequest("revival");
+        return;
+    }
+
+    hacking = false;
+    hack_count = 0;
+}
+
+void HandleTakenChipChange(int previous_taken_chip)
+{
+    if (!IsTaggerRole(CurrentRole()) || !CurrentDeviceStateIs("activate"))
+    {
+        return;
+    }
+
+    int taken_chip = GameJsonInt("taken_chip", 0);
+    if (taken_chip > previous_taken_chip)
+    {
+        StartTagCapture();
+    }
+    else if (taken_chip <= 0)
+    {
+        tag_capture_pending = false;
+        PageChange("pgTagEmpty");
+    }
+}
+
+void HandleResultFieldChange()
+{
+    UpdateHmiResults();
+}
+
+void HandleVibeChange()
+{
+    if (IsTaggerRole(CurrentRole()) || !CurrentGameStateIs("activate"))
+    {
+        return;
+    }
+
+    if ((int)my["vibe"] == 2)
+    {
+        motor_on = true;
+    }
+    else if ((int)my["vibe"] == 0)
+    {
+        motor_on = false;
+        MotorStop();
+    }
+}
+
+void SettingFunc()
+{
+    game_state = setting;
+    MySerial1.print("setting ");
+
+    ResetActivateSideEffects(true);
     lightColor(white);
     ledcWrite(BUZZER_PIN, 0);
 
@@ -38,36 +402,26 @@ void SettingFunc()
     sendCommand("sleep=1");
 }
 
-/**
- * @brief DB gamestate가 ready 일 때 동작하는 코드
- */
 void ReadyFunc()
 {
     game_state = ready;
     MySerial1.print("ready ");
 
-    motor_on = false;
-    MotorStop();
-    if (neopixel_timer.isEnabled(neopixel_timer_id))
-    {
-        neopixel_timer.deleteTimer(neopixel_timer_id);
-    }
-    ir_receive_timer.disable(ir_receive_timer_id);
+    ResetActivateSideEffects(true);
     sendCommand("sleep=0");
-    PageChange("before_tagger");
+    PageChange("pgInfo");
     lightColor(red);
 }
 
-/**
- * @brief DB gamestate가 activate 일 때 반복 동작하는 코드
- */
 void ActivateFunc()
 {
-    // 디스플레이 변경 체크
     DisplayCheck();
+    UpdateRevivalTimer();
+    UpdateTagCaptureFlow();
 
-    // 진동모터
-    if (motor_on && ((String)(const char *)my["role"] != "tagger" || (String)(const char *)my["role"] != "neutral"))
+    const char *role = CurrentRole();
+    bool should_vibrate = motor_on || pending_revival_vibration;
+    if (should_vibrate && IsPlayerRole(role))
     {
         MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
     }
@@ -76,16 +430,19 @@ void ActivateFunc()
         MotorStop();
     }
 
-    // 술래는 지속적으로 IR 송신
-    if ((String)(const char *)my["role"] == "tagger" && (int)my["taken_chip"] < (int)my["max_taken_chip"] && (String)(const char *)my["device_state"] == "activate")
+    if (CurrentDeviceStateIs("activate"))
     {
-        IrSend();
+        if (IsTaggerRole(role) && GameJsonInt("taken_chip", 0) < GameJsonInt("max_taken_chip", 1))
+        {
+            IrSend();
+        }
+        else if (IsRevivalRole(role))
+        {
+            IrSend();
+        }
     }
 }
 
-/**
- * @brief DB gamestate가 activate 일 때 한번 동작하는 코드
- */
 void ActivateRunOnce()
 {
     game_state = activate;
@@ -93,277 +450,143 @@ void ActivateRunOnce()
     MySerial1.print("activate ");
     ledcWrite(BUZZER_PIN, 0);
 
-    if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost")
-    {
-        ir_receive_timer.enable(ir_receive_timer_id);
-    }
     DisplaySet();
-    String cmd = "revival.revival_time.val=" + (String)(const char *)my["revival_time"];
-    sendCommand(cmd.c_str());
+    ShowRolePage();
 }
 
-/**
- * @brief DB에 변화가 있을 시 동작
- */
+void HandleDeviceStateChange()
+{
+    const char *device_state = CurrentDeviceState();
+    const char *role = CurrentRole();
+
+    if (TextEquals(device_state, "activate"))
+    {
+        ShowRolePage();
+    }
+    else if (TextEquals(device_state, "player_win"))
+    {
+        MotorStop();
+        if (IsTaggerRole(role))
+        {
+            PageChange("pgTagLose");
+        }
+        else
+        {
+            PageChange("pgSurWin");
+        }
+    }
+    else if (TextEquals(device_state, "player_lose"))
+    {
+        MotorStop();
+        if (IsTaggerRole(role))
+        {
+            PageChange("pgTagWin");
+        }
+        else
+        {
+            PageChange("pgSurLose");
+        }
+    }
+    else if (TextEquals(device_state, "blink") && IsTaggerRole(role))
+    {
+        if (!neopixel_timer.isEnabled(neopixel_timer_id))
+        {
+            neopixel_timer_id = neopixel_timer.setInterval(400, tagger_blink);
+        }
+        sendCommand("sleep=0");
+        PageChange("pgTagEmpty");
+    }
+    else if (TextEquals(device_state, "github"))
+    {
+        ota.check();
+    }
+    else if (TextEquals(device_state, "photo"))
+    {
+        ShowResultPage();
+    }
+}
+
 void DataChange()
 {
     static StaticJsonDocument<1000> cur;
 
     ChangeLanguage();
 
-    String cmd = "";
-
     if (my["brightness"].as<int>() != cur["brightness"].as<int>())
-        UpdateBrightness();
-
-    // game_state에 변화가 있을 시
-    if ((String)(const char *)my["game_state"] != (String)(const char *)cur["game_state"])
     {
-        if ((String)(const char *)my["game_state"] == "setting")
+        UpdateBrightness();
+    }
+
+    const char *my_game_state = CurrentGameState();
+    const char *cur_game_state = cur["game_state"].as<const char *>();
+    const char *my_device_state = CurrentDeviceState();
+    const char *cur_device_state = cur["device_state"].as<const char *>();
+    const char *my_role = CurrentRole();
+    const char *cur_role = cur["role"].as<const char *>();
+
+    if (!TextEquals(my_game_state, cur_game_state))
+    {
+        if (TextEquals(my_game_state, "setting"))
         {
             SettingFunc();
         }
-        else if ((String)(const char *)my["game_state"] == "ready")
+        else if (TextEquals(my_game_state, "ready"))
         {
             ReadyFunc();
         }
-        else if ((String)(const char *)my["game_state"] == "activate")
+        else if (TextEquals(my_game_state, "activate"))
         {
             ActivateRunOnce();
         }
     }
 
-    // device_state에 변화가 있을 시
-    if ((String)(const char *)my["device_state"] != (String)(const char *)cur["device_state"])
+    if (!TextEquals(my_device_state, cur_device_state))
     {
-        if ((String)(const char *)my["device_state"] == "activate")
-        {
-            cmd = "start.player_name.val=" + (String)(const char *)my["player_name"];
-            sendCommand(cmd.c_str());
-            sendCommand("sleep=0");
-            if ((String)(const char *)my["role"] == "player")
-            {
-                PageChange("player");
-                lightColor(green);
-                ir_receive_timer.enable(ir_receive_timer_id);
-            }
-            else if ((String)(const char *)my["role"] == "tagger")
-            {
-                if (neopixel_timer.isEnabled(neopixel_timer_id))
-                {
-                    neopixel_timer.deleteTimer(neopixel_timer_id);
-                }
-                ir_receive_timer.disable(ir_receive_timer_id);
-                PageChange("tagger");
-                lightColor(purple);
-            }
-            else if ((String)(const char *)my["role"] == "revival")
-            {
-                ir_receive_timer.disable(ir_receive_timer_id);
-                PageChange("revival");
-                lightColor(yellow);
-                revival = true;
-            }
-            else if ((String)(const char *)my["role"] == "ghost")
-            {
-                PageChange("ghost");
-                lightColor(blue);
-                ir_receive_timer.enable(ir_receive_timer_id);
-            }
-        }
+        HandleDeviceStateChange();
+    }
 
-        else if ((String)(const char *)my["device_state"] == "player_win")
+    if (!TextEquals(my_role, cur_role))
+    {
+        if (game_state == activate && !CurrentDeviceStateIs("photo"))
         {
-            MotorStop();
-            PageChange("win_lose");
-            if ((String)(const char *)my["role"] == "tagger")
-            {
-                cmd = "WinLose.pic=win_lose_pic.val+3"; // 술래 패배
-                sendCommand(cmd.c_str());
-            }
-            else
-            {
-                cmd = "WinLose.pic=win_lose_pic.val"; // 생존자 승리
-                sendCommand(cmd.c_str());
-            }
-        }
-
-        else if ((String)(const char *)my["device_state"] == "player_lose")
-        {
-            MotorStop();
-            PageChange("win_lose");
-            if ((String)(const char *)my["role"] == "tagger")
-            {
-                cmd = "WinLose.pic=win_lose_pic.val+2"; // 술래 승리
-                sendCommand(cmd.c_str());
-            }
-            else
-            {
-                cmd = "WinLose.pic=win_lose_pic.val+1"; // 생존자 패배
-                sendCommand(cmd.c_str());
-            }
-        }
-
-        else if ((String)(const char *)my["device_state"] == "blink" && (String)(const char *)my["role"] == "tagger")
-        {
-            if (!neopixel_timer.isEnabled(neopixel_timer_id))
-            {
-                neopixel_timer_id = neopixel_timer.setInterval(400, tagger_blink);
-            }
-            sendCommand("sleep=0");
-            PageChange("tagger");
-        }
-
-        else if ((String)(const char *)my["device_state"] == "github")
-        {
-            ota.check();
-        }
-
-        else if ((String)(const char *)my["device_state"] == "photo")
-        {
-            game_state = setting;
-            MySerial1.print("setting ");
-            MotorStop();
-            sendCommand("sleep=0");
-            if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "revival" || (String)(const char *)my["role"] == "ghost")
-            {
-                PageChange("player");
-                lightColor(green);
-            }
-            else if ((String)(const char *)my["role"] == "tagger")
-            {
-                PageChange("tagger");
-                lightColor(purple);
-            }
+            ShowRolePage();
         }
     }
 
-    // role에 변화가 있을 시
-    if ((String)(const char *)my["role"] != (String)(const char *)cur["role"])
+    if (!my["life_chip"].isNull() && GameJsonInt("life_chip", -1) != cur["life_chip"].as<int>())
     {
-        if (game_state == activate)
-        {
-            if ((String)(const char *)my["role"] == "player")
-            {
-                PageChange("player");
-                lightColor(green);
-                irrecv.resume();
-                ir_receive_timer.enable(ir_receive_timer_id);
-            }
-            else if ((String)(const char *)my["role"] == "revival")
-            {
-                ir_receive_timer.disable(ir_receive_timer_id);
-                lightColor(yellow);
-                if (!revival)
-                {
-                    PageChange("revival");
-                    revival = true;
-                }
-            }
-            else if ((String)(const char *)my["role"] == "ghost")
-            {
-                PageChange("ghost");
-                lightColor(blue);
-                ir_receive_timer.enable(ir_receive_timer_id);
-            }
-        }
+        HandleLifeChipChange();
     }
 
-    // life_chip에 변화가 있을 시
-    if ((int)my["life_chip"] != (int)cur["life_chip"])
+    if (GameJsonInt("revival_cooldown_count", 0) != cur["revival_cooldown_count"].as<int>())
     {
-        if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost" || (String)(const char *)my["role"] == "revival")
-        {
-            if ((int)my["life_chip"] == 1)
-            {
-                cmd = "player.LifeChip.pic=player.life_chip_pic.val";
-                sendCommand(cmd.c_str());
-                if((String)(const char *)cur["role"] == "ghost" ){
-                    has2wifi.Send((String)(const char *)my["device_name"], "role", "revival");
-                }
-            }
-            else if ((int)my["life_chip"] > 1)
-            {
-                cmd = "player.LifeChip.pic=player.life_chip_pic.val+1";
-                sendCommand(cmd.c_str());
-            }
-            else if ((int)my["life_chip"] < 1)
-            {
-                if ((String)(const char *)my["role"] != "revival")
-                {
-                    has2wifi.Send((String)(const char *)my["device_name"], "role", "ghost");
-                }
-            }
-
-            cmd = "player.life_chip.val=" + (String)(const char *)my["life_chip"];
-            sendCommand(cmd.c_str());
-        }
+        ApplyRevivalCooldownChange(cur["revival_cooldown_count"].as<int>());
     }
 
-    // taken_chip에 변화가 있을 시
-    if ((int)my["taken_chip"] != (int)cur["taken_chip"])
+    if (GameJsonInt("battery_pack", 0) != cur["battery_pack"].as<int>())
     {
-        cmd = "tagger.taken_chip.val=" + (String)(const char *)my["taken_chip"];
-        sendCommand(cmd.c_str());
-        if ((int)my["taken_chip"] == 0)
-        {
-            cmd = "tagger.TakenChip.pic=taken_chip_pic.val";
-            sendCommand(cmd.c_str());
-        }
-        else if ((int)my["taken_chip"] > 0)
-        {
-            cmd = "tagger.TakenChip.pic=taken_chip_pic.val+1";
-            sendCommand(cmd.c_str());
-        }
+        UpdateHmiBattery();
     }
 
-    // battery_pack에 변화가 있을 시
-    if ((int)my["battery_pack"] != (int)cur["battery_pack"])
+    if (GameJsonInt("taken_chip", 0) != cur["taken_chip"].as<int>())
     {
-        cmd = "player.BatteryPack.pic=player.battery_pic.val+" + (String)(const char *)my["battery_pack"];
-        sendCommand(cmd.c_str());
+        HandleTakenChipChange(cur["taken_chip"].as<int>());
     }
 
-    // exp에 변화가 있을 시
-    if ((int)my["exp"] != (int)cur["exp"])
+    if (GameJsonInt("lv", 0) != cur["lv"].as<int>() ||
+        GameJsonInt("lives_lost", 0) != cur["lives_lost"].as<int>() ||
+        GameJsonInt("batteries_gained", 0) != cur["batteries_gained"].as<int>() ||
+        GameJsonInt("round_taken_chip", 0) != cur["round_taken_chip"].as<int>())
     {
-        cmd = (String)(const char *)my["role"] + ".exp.val=" + (String)(const char *)my["exp"];
-        sendCommand(cmd.c_str());
+        HandleResultFieldChange();
     }
 
-    // lv에 변화가 있을 시
-    if ((int)my["lv"] != (int)cur["lv"])
-    {
-        if ((String)(const char *)my["role"] == "player" || (String)(const char *)my["role"] == "ghost")
-        {
-            cmd = "player.level.val=" + (String)(const char *)my["lv"];
-            sendCommand(cmd.c_str());
-        }
-        if ((String)(const char *)my["role"] == "tagger")
-        {
-            cmd = "tagger.level.val=" + (String)(const char *)my["lv"];
-            sendCommand(cmd.c_str());
-        }
-    }
-
-    // vibe에 변화가 있을 시
     if ((int)my["vibe"] != (int)cur["vibe"])
     {
-        if ((String)(const char *)my["role"] != "tagger" && (String)(const char *)my["game_state"] == "activate")
-        {
-            if ((int)my["vibe"] == 2)
-            {
-                motor_on = true;
-            }
-            else if ((int)my["vibe"] == 0)
-            {
-                motor_on = false;
-                MotorStop();
-            }
-        }
+        HandleVibeChange();
     }
 
-    Serial.println("Data Change");
+    DebugPrintln("Data Change");
 
     cur = my;
 }

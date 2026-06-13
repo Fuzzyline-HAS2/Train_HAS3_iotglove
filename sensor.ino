@@ -37,6 +37,8 @@ void IrInit()
  */
 void IrSendDataSetup(String device_name)
 {
+  ir_send_data = 0;
+
   // Address : 그룹(G) command : 플레이어(P) 에 해당하는 숫자
   // 1. String 변수를 char 배열형식으로 변경
   int str_len = device_name.length() + 1;
@@ -55,8 +57,8 @@ void IrSendDataSetup(String device_name)
   ir_send_data = ir_send_data << 8 ^ command;
   ir_send_data = ir_send_data << 8 ^ command_bar;
 
-  Serial.print("ir_send_data : ");
-  Serial.println(ir_send_data, HEX);
+  DebugPrint("ir_send_data : ");
+  DebugPrintln((unsigned long)ir_send_data, HEX);
 }
 
 /**
@@ -68,6 +70,65 @@ void IrSend()
   delay(500);
 }
 
+void ClearRevivalHelpRecords()
+{
+  for (int i = 0; i < REVIVAL_HELP_RECORDS; i++)
+  {
+    revival_help_records[i].device_name = "";
+    revival_help_records[i].expires_at = 0;
+  }
+}
+
+bool HelpRecordExpired(unsigned long now, unsigned long expires_at)
+{
+  return expires_at == 0 || (long)(now - expires_at) >= 0;
+}
+
+bool ShouldSendRevivalCooldown(String device_name, unsigned long ttl_ms)
+{
+  if (device_name.length() == 0)
+  {
+    return false;
+  }
+
+  unsigned long now = millis();
+  for (int i = 0; i < REVIVAL_HELP_RECORDS; i++)
+  {
+    if (revival_help_records[i].device_name.length() > 0 && HelpRecordExpired(now, revival_help_records[i].expires_at))
+    {
+      revival_help_records[i].device_name = "";
+      revival_help_records[i].expires_at = 0;
+    }
+  }
+
+  for (int i = 0; i < REVIVAL_HELP_RECORDS; i++)
+  {
+    if (revival_help_records[i].device_name == device_name)
+    {
+      return false;
+    }
+  }
+
+  int target_index = 0;
+  for (int i = 0; i < REVIVAL_HELP_RECORDS; i++)
+  {
+    if (revival_help_records[i].device_name.length() == 0)
+    {
+      target_index = i;
+      break;
+    }
+
+    if ((long)(revival_help_records[i].expires_at - revival_help_records[target_index].expires_at) < 0)
+    {
+      target_index = i;
+    }
+  }
+
+  revival_help_records[target_index].device_name = device_name;
+  revival_help_records[target_index].expires_at = now + ttl_ms;
+  return true;
+}
+
 /**
  * @brief IR 수신
  */
@@ -75,29 +136,35 @@ void IrReceive()
 {
   if (irrecv.decode(&results))
   {
-    // 0. IR 수신데이터 해석
     ir_decode_data = IrDecoding((uint32_t)results.value);
     if ((!ir_receive_error) && (ir_decode_data != "error"))
     {
-      Serial.print("IR DATA : ");
-      Serial.println(ir_decode_data);
-      // 1. IR 수신데이터[플레이어 정보]를 DB에서 읽어와서 술래인지, 플레이어인지 확인
+      DebugPrint("IR DATA : ");
+      DebugPrintln(ir_decode_data);
       has2wifi.Receive(ir_decode_data);
-      // 2. 플레이어이면 조건에 맞다면 DB에서 2명의 플레이어 생명칩 개수 수정 & 술래이면 해킹 페이지로 전환
-      // 자신의 IR이 찍히면 인식 X
-      if ((String)(const char *)tag["device_name"] != (String)(const char *)my["device_name"])
+      const char *tag_device_name = tag["device_name"].as<const char *>();
+      const char *my_device_name = my["device_name"].as<const char *>();
+      if (!TextEquals(tag_device_name, my_device_name))
       {
-        if ((String)(const char *)tag["role"] == "tagger" && !hacking)
+        const char *my_role = my["role"].as<const char *>();
+        const char *tag_role = tag["role"].as<const char *>();
+        const char *tag_device_state = tag["device_state"].as<const char *>();
+        const char *my_device_state = my["device_state"].as<const char *>();
+
+        if (IsTaggerRole(tag_role) && !hacking)
         {
-          if ((String)(const char *)my["role"] == "player" && (String)(const char *)tag["device_state"] == "activate")
+          if (IsPlayerRole(my_role) && TextEquals(tag_device_state, "activate"))
           {
             hack_count++;
             if (hack_count >= HACK_THRESHOLD)
             {
               hack_count = 0;
-              ir_receive_timer.disable(ir_receive_timer_id);
               hacking = true;
-              PageChange("hacking");
+              if (IsFinalLifeTaken())
+              {
+                StartPendingRevivalVibration();
+              }
+              has2wifi.Situation(ir_decode_data, "taken");
             }
           }
           else
@@ -105,15 +172,31 @@ void IrReceive()
             hack_count = 0;
           }
         }
-        else if ((String)(const char *)tag["role"] == "player")
+        else if (IsRevivalRole(tag_role))
         {
           hack_count = 0;
-          if (((int)my["life_chip"] < (int)my["max_life_chip"]))
+          if (IsPlayerRole(my_role) && TextEquals(my_device_state, "activate") && !hacking)
           {
-            ir_receive_timer.disable(ir_receive_timer_id);
-            lifechip_receive = true;
-            PageChange("lifechip_rece");
+            int revival_time = tag["revival_time"].as<int>();
+            if (revival_time <= 0)
+            {
+              revival_time = my["revival_time"].as<int>();
+            }
+            if (revival_time <= 0)
+            {
+              revival_time = DEFAULT_REVIVAL_TIME_SEC;
+            }
+
+            unsigned long ttl_ms = (unsigned long)revival_time * 1000UL;
+            if (ShouldSendRevivalCooldown(ir_decode_data, ttl_ms))
+            {
+              has2wifi.Situation(ir_decode_data, "revival_cooldown");
+            }
           }
+        }
+        else
+        {
+          hack_count = 0;
         }
       }
     }
@@ -215,8 +298,10 @@ int Intensity(int intensity)
     return vibration_mode5;
     break;
   default:
+    return 0;
     break;
   }
+  return 0;
 }
 
 void MotorOn(const int *vibration_pattern, int len)
@@ -299,7 +384,7 @@ void BeetleScanWifi()
   if (MySerial1.available())
   {
     wifi_name = MySerial1.readStringUntil(' ');
-    Serial.println(wifi_name);
+    DebugPrintln(wifi_name);
     if (wifi_name == "reset")
     {
       MySerial1.print((String)(const char *)my["device_state"] + " ");

@@ -1,4 +1,4 @@
-﻿#define __DEBUG__
+#define __DEBUG__
 
 #ifndef _IOTGLOVE_H_
 #define _IOTGLOVE_H_
@@ -14,10 +14,37 @@ int hack_count = 0;
 #define HACK_THRESHOLD 3
 bool revival;
 bool breath_hold;
-bool lifechip_send;
-bool lifechip_receive;
 bool motor_on;
+bool pending_revival_vibration;
 String ir_decode_data;
+char current_hmi_page[20];
+
+#define REVIVAL_HELP_RECORDS 10
+#define REVIVAL_TICK_PER_SEC 10
+#define REVIVAL_FINISH_DISPLAY_MS 1500
+#define TAG_CAPTURE_MIN_MS 1000
+#define TAG_CAPTURE_TIMEOUT_MS 3000
+#define DEFAULT_REVIVAL_TIME_SEC 30
+#define DEBUG_TELNET_PORT 23
+#define ROLE_SEND_RETRY_MS 2000
+
+struct RevivalHelpRecord
+{
+    String device_name;
+    unsigned long expires_at;
+};
+
+RevivalHelpRecord revival_help_records[REVIVAL_HELP_RECORDS];
+bool revival_timer_active = false;
+bool revival_finish_page = false;
+bool revival_finish_sent = false;
+unsigned long revival_started_ms = 0;
+unsigned long revival_bonus_ms = 0;
+unsigned long revival_finish_started_ms = 0;
+unsigned long last_role_send_ms = 0;
+int last_revival_cooldown_count = 0;
+bool tag_capture_pending = false;
+unsigned long tag_capture_started_ms = 0;
 
 typedef enum GameState
 {
@@ -34,8 +61,32 @@ HardwareSerial MySerial2(2); // Display
 //=============================== Display ===============================
 void DisplaySet();
 void DisplayCheck();
-void NextionReceived(String nextion_string);
-void PageChange(String page);
+void PageChange(const char *page);
+void SendHmiValue(const char *target, int value);
+void UpdateHmiLanguage();
+void UpdateHmiBattery();
+void UpdateHmiResults();
+void AddRevivalGaugeBonus(int seconds);
+
+//========================== Nextion TFT Upload ==========================
+void NextionTftUploadInit();
+bool NextionTftUploadStartupWindow(unsigned long window_ms);
+bool NextionTftUploadPoll();
+void NextionTftUploadRestoreDisplaySerial();
+
+//=============================== Debug ===============================
+void DebugInit();
+void DebugPoll();
+Print *DebugOutput();
+void DebugPrint(const char *value);
+void DebugPrint(const String &value);
+void DebugPrint(unsigned long value);
+void DebugPrintln();
+void DebugPrintln(const char *value);
+void DebugPrintln(const String &value);
+void DebugPrintln(unsigned long value);
+void DebugPrintln(unsigned long value, int base);
+void DebugPrintf(const char *format, ...);
 
 //*=============================== Sensor ===============================*
 /**
@@ -44,6 +95,23 @@ void PageChange(String page);
 void SensorInit();
 
 //================================ Wifi ==================================
+#include <esp_wifi.h>
+
+// WiFi direct connection target. Keep actual values in local secrets.h.
+#ifndef GLOVE_WIFI_SSID
+#define GLOVE_WIFI_SSID "badland"
+#endif
+
+#ifndef GLOVE_WIFI_PASS
+#define GLOVE_WIFI_PASS ""
+#endif
+
+static char glove_ssid[] = GLOVE_WIFI_SSID;
+static char glove_pass[] = GLOVE_WIFI_PASS;
+
+// 약신호 링크 안정화(최대 TX 파워 / 모뎀 슬립 off / 자동 재연결). WiFi.begin 전에 호출.
+void WifiForceLowRateInit();
+
 HAS2_Wifi has2wifi("http://172.30.1.43");
 
 //================================ OTA ==================================
@@ -62,6 +130,19 @@ void ReadyFunc();
 void ActivateFunc();
 void ActivateRunOnce();
 void DataChange();
+bool TextEquals(const char *value, const char *expected);
+bool IsPlayerRole(const char *role);
+bool IsTaggerRole(const char *role);
+bool IsRevivalRole(const char *role);
+bool IsRevivalRole(const String &role);
+void ResetRevivalTimer();
+void StartRevivalTimer();
+void UpdateRevivalTimer();
+void UpdateTagCaptureFlow();
+void ApplyRevivalCooldownChange(int previous_count);
+bool IsFinalLifeTaken();
+void StartPendingRevivalVibration();
+void StopPendingRevivalVibration();
 
 //=============================== Neopixel ===============================
 #define NUMPIXELS 4
@@ -75,6 +156,7 @@ int white[3]  = {255, 255, 255};
 int red[3]    = {255, 0,   0  };
 int yellow[3] = {255, 255, 0  };
 int green[3]  = {0,   255, 0  };
+int skyblue[3] = {0,   180, 255};
 int purple[3] = {255, 0,   255};
 int blue[3]   = {0,   0,   255};
 
@@ -92,10 +174,12 @@ uint64_t ir_send_data = 0;
 bool ir_receive_error = false;
 
 void IrInit();
-void IrSendDataSetup(char device_name[]);
+void IrSendDataSetup(String device_name);
 void IrSend();
 void IrReceive();
 String IrDecoding(uint32_t ir_data);
+void ClearRevivalHelpRecords();
+bool ShouldSendRevivalCooldown(String device_name, unsigned long ttl_ms);
 
 //=========================== Vibration Motor ===========================
 const int MotorFreq = 5000;
