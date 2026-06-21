@@ -6,6 +6,7 @@ scripts/secrets.py
 /dist/
 /logs/
 /.pio/
+/.platformio-cache/
 
 /.claude/
 /.omc/

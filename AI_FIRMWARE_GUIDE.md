@@ -220,3 +220,48 @@ OTA 실패 시 펌웨어는 `device_state=ota_error`를 서버로 전송한다.
   - `beetle-update.sig`
   - `beetle-manifest-dev.json`, `beetle-manifest-rc.json`, or `beetle-manifest-prd.json`
   - `beetle-build-info.json`
+
+## Build Location and Cache Policy
+
+Release binaries are built by GitHub Actions, not by the developer's local PC.
+Local builds are for verification and USB flashing. The official OTA assets are
+the files attached to the GitHub Release.
+
+GitHub Actions flow for this repository:
+
+1. A SemVer tag such as `v1.2.4-dev.5` is pushed.
+2. `.github/workflows/release.yml` runs on a GitHub-hosted Ubuntu runner.
+3. The workflow creates `secrets.h` from GitHub Actions secrets.
+4. Docker builds the fixed PlatformIO environment.
+5. PlatformIO builds TTGO and Beetle firmware.
+6. The workflow signs the `.bin` files, creates manifests/build-info, and
+   uploads the assets to the GitHub Release.
+
+GitHub secrets are encrypted repository settings. They are injected only into
+the Actions job environment and are not committed to source code. Changing a
+GitHub secret affects the next GitHub Actions release build only; it does not
+change already-built release assets or local Arduino IDE builds.
+
+The release workflow caches PlatformIO packages in `.platformio-cache` using
+`actions/cache`. This avoids downloading the ESP32 platform, toolchain, and
+libraries again on every GitHub Actions run when `platformio.ini` and the
+Dockerfile have not changed.
+
+For local Docker builds, use the helper script instead of typing long Docker
+commands:
+
+```powershell
+.\scripts\pio_docker_build.ps1 -BuildImage
+.\scripts\pio_docker_build.ps1
+.\scripts\pio_docker_build.ps1 -Env ttgo-t8-v171
+.\scripts\pio_docker_build.ps1 -Env beetle-c3-location
+```
+
+The local script mounts the named Docker volume
+`iotglove-platformio-cache:/opt/platformio`, so PlatformIO tools survive
+`docker run --rm`. The first run can still be slow because it fills the cache;
+later runs should be much faster.
+
+If a clean local Docker build must fetch private HAS2 libraries, set
+`HAS2_LIB_TOKEN` in the current PowerShell session before running the script.
+Do not put the token in firmware source code.

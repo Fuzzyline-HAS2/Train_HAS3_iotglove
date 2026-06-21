@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PLATFORMIO_CORE_VERSION: "6.1.19"
+      PIO_CACHE_DIR: ${{ github.workspace }}/.platformio-cache
 
     steps:
       - name: Checkout
@@ -75,8 +76,30 @@ jobs:
           )
           PY
 
+      - name: Restore PlatformIO package cache
+        uses: actions/cache@v4
+        with:
+          path: .platformio-cache
+          key: pio-${{ runner.os }}-${{ env.PLATFORMIO_CORE_VERSION }}-${{ hashFiles('platformio.ini', 'Dockerfile') }}
+          restore-keys: |
+            pio-${{ runner.os }}-${{ env.PLATFORMIO_CORE_VERSION }}-
+            pio-${{ runner.os }}-
+
+      - name: Prepare PlatformIO cache directory
+        run: mkdir -p "${PIO_CACHE_DIR}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        run: docker build -t iotglove-builder .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: iotglove-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
 
       - name: Build firmware
         shell: bash
@@ -91,6 +114,7 @@ jobs:
             -e GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
             -e PLATFORMIO_CORE_VERSION="${PLATFORMIO_CORE_VERSION}" \
             -v "${GITHUB_WORKSPACE}:/work" \
+            -v "${PIO_CACHE_DIR}:/opt/platformio" \
             iotglove-builder \
             /bin/sh -lc 'set -eu
               git config --global --add safe.directory /work
