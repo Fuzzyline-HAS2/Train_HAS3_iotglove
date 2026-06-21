@@ -97,18 +97,105 @@ void SendRoleRequest(const char *role)
     has2wifi.Send((String)(const char *)my["device_name"], "role", role);
 }
 
-String ResolveOtaManifestUrl(const char *channel)
+bool IsValidOtaChannel(const String &channel)
 {
+    return channel == "dev" || channel == "rc" || channel == "prd";
+}
+
+bool IsSafeOtaTag(const String &tag)
+{
+    if (tag.length() == 0 || tag.length() > 48)
+    {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < tag.length(); i++)
+    {
+        char c = tag.charAt(i);
+        bool ok = (c >= 'A' && c <= 'Z') ||
+                  (c >= 'a' && c <= 'z') ||
+                  (c >= '0' && c <= '9') ||
+                  c == '.' || c == '-' || c == '_';
+        if (!ok)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool IsGithubDeviceState(const char *device_state)
+{
+    if (device_state == NULL)
+    {
+        return false;
+    }
+    return strncmp(device_state, "github", 6) == 0 &&
+           (device_state[6] == '\0' || device_state[6] == '_' || device_state[6] == '@');
+}
+
+void ParseOtaDeviceState(const char *device_state, String &channel, String &tag)
+{
+    channel = OTA_CHANNEL;
+    tag = "";
+
+    String value(device_state == NULL ? "" : device_state);
+    value.trim();
+
+    if (value.startsWith("github_"))
+    {
+        String rest = value.substring(7);
+        int tag_pos = rest.indexOf('@');
+        if (tag_pos >= 0)
+        {
+            channel = rest.substring(0, tag_pos);
+            tag = rest.substring(tag_pos + 1);
+        }
+        else
+        {
+            channel = rest;
+        }
+    }
+    else if (value.startsWith("github@"))
+    {
+        tag = value.substring(7);
+    }
+
+    channel.trim();
+    tag.trim();
+
+    if (!IsValidOtaChannel(channel))
+    {
+        channel = OTA_CHANNEL;
+    }
+}
+
+String BuildTaggedOtaManifestUrl(const String &channel, const String &tag)
+{
+    return String(OTA_RELEASE_BASE_URL) + "/" + tag + "/manifest-" + channel + ".json";
+}
+
+String ResolveOtaManifestUrl(const String &channel, const String &tag)
+{
+    if (tag.length() > 0)
+    {
+        if (!IsSafeOtaTag(tag))
+        {
+            return String("");
+        }
+        return BuildTaggedOtaManifestUrl(channel, tag);
+    }
+
     if (strlen(OTA_MANIFEST_URL) > 0)
     {
         return String(OTA_MANIFEST_URL);
     }
 
-    if (TextEquals(channel, "dev"))
+    if (channel == "dev")
     {
         return String(OTA_DEV_MANIFEST_URL);
     }
-    if (TextEquals(channel, "rc"))
+    if (channel == "rc")
     {
         return String(OTA_RC_MANIFEST_URL);
     }
@@ -120,33 +207,39 @@ void SendOtaError()
     has2wifi.Send((String)(const char *)my["device_name"], "device_state", "ota_error");
 }
 
-void RunManifestOta()
+void RunManifestOta(const String &channel, const String &tag)
 {
-    const char *channel = OTA_CHANNEL;
-    String manifest_url = ResolveOtaManifestUrl(channel);
+    String manifest_url = ResolveOtaManifestUrl(channel, tag);
     if (manifest_url.length() == 0)
     {
         SendOtaError();
         return;
     }
 
-    if (!ota.checkManifest(manifest_url.c_str(), channel))
+    DebugPrint("[OTA] channel=");
+    DebugPrint(channel);
+    DebugPrint(" tag=");
+    DebugPrintln(tag.length() > 0 ? tag : "(latest)");
+
+    if (!ota.checkManifest(manifest_url.c_str(), channel.c_str(), true))
     {
         SendOtaError();
     }
 }
 
-void StartBeetleOtaThenTtgoOta()
+void StartBeetleOtaThenTtgoOta(const char *device_state)
 {
     if (beetle_ota_pending)
     {
         return;
     }
 
+    ParseOtaDeviceState(device_state, pending_ota_channel, pending_ota_tag);
     beetle_ota_pending = true;
     beetle_ota_started_ms = millis();
     DebugPrintln("[OTA] request Beetle OTA");
-    MySerial1.print("github ");
+    MySerial1.print(device_state);
+    MySerial1.print(" ");
 }
 
 void FinishBeetleOtaWaitAndRunTtgoOta(const char *reason)
@@ -160,7 +253,7 @@ void FinishBeetleOtaWaitAndRunTtgoOta(const char *reason)
     beetle_ota_started_ms = 0;
     DebugPrint("[OTA] Beetle wait finished: ");
     DebugPrintln(reason);
-    RunManifestOta();
+    RunManifestOta(pending_ota_channel, pending_ota_tag);
 }
 
 void UpdateBeetleOtaFlow()
@@ -180,6 +273,8 @@ void CancelBeetleOtaWait()
 {
     beetle_ota_pending = false;
     beetle_ota_started_ms = 0;
+    pending_ota_channel = "";
+    pending_ota_tag = "";
 }
 
 void StopNeopixelTimer()
@@ -641,7 +736,7 @@ void HandleDeviceStateChange()
     const char *device_state = CurrentDeviceState();
     const char *role = CurrentRole();
 
-    if (!TextEquals(device_state, "github"))
+    if (!IsGithubDeviceState(device_state))
     {
         CancelBeetleOtaWait();
     }
@@ -683,9 +778,9 @@ void HandleDeviceStateChange()
         sendCommand("sleep=0");
         PageChange("pgTagAltar");
     }
-    else if (TextEquals(device_state, "github"))
+    else if (IsGithubDeviceState(device_state))
     {
-        StartBeetleOtaThenTtgoOta();
+        StartBeetleOtaThenTtgoOta(device_state);
     }
     else if (TextEquals(device_state, "photo"))
     {

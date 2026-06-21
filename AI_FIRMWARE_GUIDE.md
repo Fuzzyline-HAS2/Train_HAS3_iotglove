@@ -42,6 +42,7 @@ prd = 3
 ```text
 v1.2.4-dev.1 -> 10204101
 v1.2.4-dev.2 -> 10204102
+v1.2.4-dev.3 -> 10204103
 v1.2.4-rc.1  -> 10204201
 v1.2.4       -> 10204300
 ```
@@ -49,8 +50,8 @@ v1.2.4       -> 10204300
 펌웨어 버전 상수는 `library_and_pin.h`에 둔다.
 
 ```cpp
-#define FIRMWARE_VERSION "1.2.4-dev.2"
-#define FIRMWARE_VERSION_CODE 10204102
+#define FIRMWARE_VERSION "1.2.4-dev.3"
+#define FIRMWARE_VERSION_CODE 10204103
 ```
 
 OTA는 `manifest.version_code > FIRMWARE_VERSION_CODE`일 때만 실행한다.
@@ -71,11 +72,11 @@ manifest 예시:
 ```json
 {
   "channel": "dev",
-  "version": "1.2.4-dev.2",
-  "version_code": 10204102,
-  "firmware_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/update.bin",
-  "signature_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/update.sig",
-  "build_info_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/build-info.json",
+  "version": "1.2.4-dev.3",
+  "version_code": 10204103,
+  "firmware_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/update.bin",
+  "signature_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/update.sig",
+  "build_info_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/build-info.json",
   "size": 1217716,
   "firmware_sha256": "...",
   "signature_sha256": "...",
@@ -155,6 +156,12 @@ HAS2_LIB_TOKEN
 
 Current OTA policy: the server DB only changes `device_state` to `github`. Ignore any older references to `ota_channel` or `ota_manifest_url`; those are now firmware compile-time constants.
 
+On boot, after WiFi/server sync, TTGO reports version fields to the server:
+
+- `esp_version`: current firmware `FIRMWARE_VERSION`.
+- `nextion_version`: numeric value read from `pgSetting.vVersion.val`.
+- If the Nextion value cannot be read, firmware sends `nextion_version=-1`.
+
 OTA 트리거는 기존처럼 `device_state=github`를 사용한다.
 
 서버 DB 필드:
@@ -178,33 +185,31 @@ OTA 실패 시 펌웨어는 `device_state=ota_error`를 서버로 전송한다.
 - signature/bin HMAC mismatch이면 OTA 실패 확인
 ## OTA DB Contract Update
 
-- The server DB does not need `ota_channel` or `ota_manifest_url`.
-- The server only triggers OTA by changing `device_state` to `github`.
-- Firmware chooses the OTA channel and manifest URL from compile-time constants:
-  - `OTA_CHANNEL`
-  - `OTA_MANIFEST_URL`
-  - `OTA_PRD_MANIFEST_URL`
-  - `OTA_DEV_MANIFEST_URL`
-  - `OTA_RC_MANIFEST_URL`
-- `OTA_MANIFEST_URL` is optional. If it is non-empty, firmware uses it directly.
-- If `OTA_MANIFEST_URL` is empty, firmware selects a manifest URL from `OTA_CHANNEL`.
-- Current default channel is `dev` because the current firmware version is `1.2.4-dev.2`.
-- For production firmware, change `OTA_CHANNEL` to `prd` or pass `-D OTA_CHANNEL=\"prd\"` in the build flags.
-- With this policy, a DB change to `device_state=github` is enough to start GitHub Release OTA.
-- GitHub `releases/latest` is suitable for `prd`. For `dev` and `rc`, the firmware currently points to an explicit tag manifest.
-- GitHub Release workflow must create `dev` and `rc` tags as prereleases so `releases/latest` remains safe for `prd`.
-- If `dev` or `rc` must always update to the newest prerelease without DB fields, add a stable public manifest pointer or a GitHub API discovery flow later.
+- Do not add OTA DB fields. OTA selection is encoded in `device_state`.
+- Supported values:
+  - `github`: legacy default channel from `OTA_CHANNEL`.
+  - `github_dev`: latest dev manifest from `dev-latest`.
+  - `github_rc`: latest rc manifest from `rc-latest`.
+  - `github_prd`: GitHub production latest release.
+  - `github_dev@v1.2.4-dev.3`: exact dev release tag.
+  - `github_rc@v1.2.4-rc.1`: exact rc release tag.
+  - `github_prd@v1.2.4`: exact production release tag.
+- If a tag is present after `@`, the tag manifest wins over compile-time default URLs.
+- Manifest OTA allows downgrade for QA rollback. Same `version_code` is still skipped.
+- `device_state=ota_error` is sent when manifest download, channel check, signature check, or OTA execution fails.
+- Release workflow updates `dev-latest` and `rc-latest` pointer releases for prerelease tags.
+- GitHub `releases/latest` remains reserved for production `prd`.
 - Do not store `HAS2_LIB_TOKEN` in firmware. That token is only for GitHub Actions to fetch private libraries during build.
 
 ## Beetle Location Firmware
 
 - `wifi_location/wifi_location.ino` is the Beetle ESP32-C3 firmware connected to TTGO over UART1.
-- TTGO sends `setting `, `ready `, `activate `, and `github ` to Beetle.
+- TTGO sends `setting `, `ready `, `activate `, and OTA commands such as `github_dev ` or `github_prd@v1.2.4 ` to Beetle.
 - Beetle scans BLE advertisers, not WiFi AP RSSI.
 - BLE device ID is the advertiser Local Name, and only names starting with `HAS2` are valid location candidates.
 - Beetle averages RSSI for 3 seconds and sends the nearest stable ID as `<device_id> ` after the same ID wins 2 scan windows in a row.
 - Beetle sends `reset ` on boot. TTGO responds with the current `device_state`.
-- If TTGO receives `device_state=github`, it sends `github ` to Beetle first, then starts TTGO OTA after `beetle_ota_start`, `beetle_ota_skip`, `beetle_ota_error`, or a 10 second timeout.
+- If TTGO receives an OTA `device_state`, it sends the same OTA command to Beetle first, then starts TTGO OTA after `beetle_ota_start`, `beetle_ota_skip`, `beetle_ota_error`, or a 10 second timeout.
 - Beetle performs its own GitHub manifest OTA over WiFi using the same `GLOVE_WIFI_SSID`, `GLOVE_WIFI_PASS`, and `HMAC_SECRET` build secrets.
 - Beetle must use the `min_spiffs` partition because BLE + HTTPS OTA is larger than the default 1.2MB OTA app slot.
   In Arduino IDE, select `Partition Scheme = Minimal SPIFFS (1.9MB APP with OTA/128KB SPIFFS)`.

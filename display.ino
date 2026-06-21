@@ -87,6 +87,34 @@ void AddRevivalGaugeBonus(int seconds)
     sendCommand(cmd);
 }
 
+bool ReadHmiNumber(const char *target, uint32_t *value, uint32_t timeout_ms)
+{
+    if (target == NULL || value == NULL)
+    {
+        return false;
+    }
+
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "get %s", target);
+    sendCommand(cmd);
+    return recvRetNumber(value, timeout_ms);
+}
+
+bool ReadNextionVersion(uint32_t *version)
+{
+    if (ReadHmiNumber("pgSetting.vVersion.val", version, 300))
+    {
+        return true;
+    }
+
+    sendCommand("page pgSetting");
+    delay(150);
+    bool ok = ReadHmiNumber("pgSetting.vVersion.val", version, 500);
+    sendCommand("page 0");
+    delay(50);
+    return ok;
+}
+
 void DisplaySet()
 {
     UpdateHmiLanguage();

@@ -395,7 +395,7 @@ bool SecureOTA::check()
   return _execOTA(_firmware_url, _signature_url, 0);
 }
 
-bool SecureOTA::checkManifest(const char *manifest_url, const char *expected_channel)
+bool SecureOTA::checkManifest(const char *manifest_url, const char *expected_channel, bool allow_downgrade)
 {
   _println("[OTA] manifest check");
   if (WiFi.status() != WL_CONNECTED)
@@ -438,14 +438,29 @@ bool SecureOTA::checkManifest(const char *manifest_url, const char *expected_cha
   }
 
   _printf("[OTA] manifest %s code %d / current %d\n", version, versionCode, _current_version_code);
-  if (versionCode <= _current_version_code)
+  if (versionCode == _current_version_code)
   {
-    _println("[OTA] manifest version is not newer");
+    _println("[OTA] manifest version is already installed");
     if (_on_skip)
     {
       _on_skip();
     }
     return true;
+  }
+
+  if (versionCode < _current_version_code && !allow_downgrade)
+  {
+    _println("[OTA] manifest version is older");
+    if (_on_skip)
+    {
+      _on_skip();
+    }
+    return true;
+  }
+
+  if (versionCode < _current_version_code)
+  {
+    _println("[OTA] downgrade allowed");
   }
 
   if (!_validUrl(firmwareUrl) || !_validUrl(signatureUrl))

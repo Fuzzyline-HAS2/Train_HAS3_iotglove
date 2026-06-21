@@ -19,7 +19,7 @@ public:
   void setOnSkip(std::function<void()> callback);
 
   bool check();
-  bool checkManifest(const char *manifest_url, const char *expected_channel);
+  bool checkManifest(const char *manifest_url, const char *expected_channel, bool allow_downgrade = false);
 
 private:
   const char *_firmware_url;

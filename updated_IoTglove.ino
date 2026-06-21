@@ -117,6 +117,99 @@ void BootConnectWifi()
   Serial.println(DEBUG_TELNET_PORT);
 }
 
+void StartVersionReport()
+{
+  version_report_pending = true;
+  version_report_next_ms = 0;
+  version_report_attempts = 0;
+  version_report_successes = 0;
+}
+
+bool ReportDeviceVersions()
+{
+  const char *device_name = my["device_name"].as<const char *>();
+  if (device_name == NULL || device_name[0] == '\0')
+  {
+    Serial.println("[BOOT] version report waiting: device_name empty");
+    DebugPrintln("[BOOT] skip version report: device_name empty");
+    has2wifi.ReceiveMine();
+    return false;
+  }
+
+  String deviceName(device_name);
+  deviceName.trim();
+  if (deviceName.length() == 0)
+  {
+    Serial.println("[BOOT] version report waiting: device_name blank");
+    DebugPrintln("[BOOT] skip version report: device_name blank");
+    has2wifi.ReceiveMine();
+    return false;
+  }
+
+  Serial.print("[BOOT] report esp_version=");
+  Serial.println(FIRMWARE_VERSION);
+  has2wifi.Send(deviceName, "esp_version", FIRMWARE_VERSION);
+
+  uint32_t nextion_version = 0;
+  if (ReadNextionVersion(&nextion_version))
+  {
+    String nextionVersion(nextion_version);
+    Serial.print("[BOOT] report nextion_version=");
+    Serial.println(nextionVersion);
+    has2wifi.Send(deviceName, "nextion_version", nextionVersion);
+    DebugPrint("[BOOT] nextion_version=");
+    DebugPrintln(nextion_version);
+  }
+  else
+  {
+    Serial.println("[BOOT] report nextion_version=-1");
+    has2wifi.Send(deviceName, "nextion_version", "-1");
+    DebugPrintln("[BOOT] nextion_version read failed");
+  }
+
+  return true;
+}
+
+void UpdateVersionReport()
+{
+  if (!version_report_pending)
+  {
+    return;
+  }
+
+  unsigned long now = millis();
+  if (version_report_next_ms != 0 && now < version_report_next_ms)
+  {
+    return;
+  }
+
+  if (version_report_attempts >= VERSION_REPORT_MAX_ATTEMPTS)
+  {
+    version_report_pending = false;
+    Serial.println("[BOOT] version report stopped: max attempts");
+    DebugPrintln("[BOOT] version report stopped: max attempts");
+    return;
+  }
+
+  version_report_attempts++;
+  Serial.print("[BOOT] version report attempt=");
+  Serial.println(version_report_attempts);
+
+  if (ReportDeviceVersions())
+  {
+    version_report_successes++;
+    if (version_report_successes >= VERSION_REPORT_SUCCESS_TARGET)
+    {
+      version_report_pending = false;
+      Serial.println("[BOOT] version report complete");
+      DebugPrintln("[BOOT] version report complete");
+      return;
+    }
+  }
+
+  version_report_next_ms = now + VERSION_REPORT_RETRY_MS;
+}
+
 //************************************************ Core1 ********************************************************************
 /**
  * @brief IoT Glove Intialize
@@ -154,6 +247,8 @@ void IotGloveInit()
   SensorInit(); // IoT Glove 사용 센서, 모듈 세팅
   TimerInit();  // 타이머 세팅
   has2wifi.Loop();
+  StartVersionReport();
+  UpdateVersionReport();
   DataChange();
 }
 
@@ -182,6 +277,7 @@ void loop()
   }
 
   DebugPoll();
+  UpdateVersionReport();
   UpdateBeetleOtaFlow();
   UpdateSurConnectFlow();
   TimerRun();

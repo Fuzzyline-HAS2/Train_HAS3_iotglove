@@ -33,9 +33,10 @@
 #define BEETLE_OTA_MANIFEST_URL ""
 #endif
 
+#define BEETLE_OTA_RELEASE_BASE_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download"
 #define BEETLE_OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/beetle-manifest-prd.json"
-#define BEETLE_OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/beetle-manifest-dev.json"
-#define BEETLE_OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-rc.1/beetle-manifest-rc.json"
+#define BEETLE_OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/dev-latest/beetle-manifest-dev.json"
+#define BEETLE_OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/rc-latest/beetle-manifest-rc.json"
 
 #define STRINGIFY_VALUE(value) #value
 #define STRINGIFY(value) STRINGIFY_VALUE(value)
@@ -76,9 +77,13 @@ void ScanBleLocation();
 
 void InitBeetleOta();
 void StopBeetleWifi();
-String ResolveBeetleManifestUrl();
+bool IsGithubCommand(const String &command);
+bool IsValidOtaChannel(const String &channel);
+bool IsSafeOtaTag(const String &tag);
+void ParseOtaCommand(const String &command, String &channel, String &tag);
+String ResolveBeetleManifestUrl(const String &channel, const String &tag);
 bool EnsureWifiConnected();
-void RunBeetleOta();
+void RunBeetleOta(const String &command);
 
 void HandleTtgoCommand(const String &command);
 void ReadTtgoCommands();

@@ -39,6 +39,9 @@ char current_hmi_page[20];
 #define BOOT_WIFI_RETRY_MS 15000
 #define BOOT_WIFI_STATUS_MS 1000
 #define BOOT_WIFI_RETRY_PAUSE_MS 250
+#define VERSION_REPORT_RETRY_MS 5000
+#define VERSION_REPORT_MAX_ATTEMPTS 10
+#define VERSION_REPORT_SUCCESS_TARGET 3
 
 struct RevivalHelpRecord
 {
@@ -63,6 +66,12 @@ bool page_change_vibration_active = false;
 unsigned long page_change_vibration_started_ms = 0;
 bool beetle_ota_pending = false;
 unsigned long beetle_ota_started_ms = 0;
+String pending_ota_channel;
+String pending_ota_tag;
+bool version_report_pending = false;
+unsigned long version_report_next_ms = 0;
+uint8_t version_report_attempts = 0;
+uint8_t version_report_successes = 0;
 unsigned long last_ir_send_ms = 0;
 char beetle_rx_buffer[BEETLE_RX_BUFFER_SIZE];
 uint8_t beetle_rx_len = 0;
@@ -88,6 +97,7 @@ void UpdateHmiLanguage();
 void UpdateHmiBattery();
 void UpdateHmiResults();
 void AddRevivalGaugeBonus(int seconds);
+bool ReadNextionVersion(uint32_t *version);
 
 //========================== Nextion TFT Upload ==========================
 void NextionTftUploadInit();
@@ -136,6 +146,9 @@ static char glove_pass[] = GLOVE_WIFI_PASS;
 
 // 약신호 링크 안정화(최대 TX 파워 / 모뎀 슬립 off / 자동 재연결). WiFi.begin 전에 호출.
 void WifiForceLowRateInit();
+void StartVersionReport();
+void UpdateVersionReport();
+bool ReportDeviceVersions();
 
 HAS2_Wifi has2wifi("http://172.30.1.43");
 
@@ -148,9 +161,10 @@ HAS2_Wifi has2wifi("http://172.30.1.43");
 #define OTA_MANIFEST_URL ""
 #endif
 
+#define OTA_RELEASE_BASE_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download"
 #define OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/manifest-prd.json"
-#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/manifest-dev.json"
-#define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-rc.1/manifest-rc.json"
+#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/dev-latest/manifest-dev.json"
+#define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/rc-latest/manifest-rc.json"
 
 SecureOTA ota(
   "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.bin",
@@ -184,7 +198,9 @@ void StartPendingRevivalVibration();
 void StopPendingRevivalVibration();
 void StartPageChangeVibration();
 void UpdateVibration();
-void StartBeetleOtaThenTtgoOta();
+bool IsGithubDeviceState(const char *device_state);
+void ParseOtaDeviceState(const char *device_state, String &channel, String &tag);
+void StartBeetleOtaThenTtgoOta(const char *device_state);
 void UpdateBeetleOtaFlow();
 void CancelBeetleOtaWait();
 void FinishBeetleOtaWaitAndRunTtgoOta(const char *reason);

@@ -186,3 +186,33 @@ jobs:
             "dist/${BEETLE_MANIFEST}" \
             dist/beetle-build-info.json \
             --clobber
+
+          if [ "${CHANNEL}" != "prd" ]; then
+            ALIAS_TAG="${CHANNEL}-latest"
+            git tag -f "${ALIAS_TAG}" "${GITHUB_SHA}"
+            git push origin "refs/tags/${ALIAS_TAG}" --force
+
+            if ! gh release view "${ALIAS_TAG}" >/dev/null 2>&1; then
+              gh release create "${ALIAS_TAG}" \
+                --verify-tag \
+                --title "${ALIAS_TAG}" \
+                --notes "Latest ${CHANNEL} firmware pointer. Current version: ${TAG}" \
+                --prerelease
+            else
+              gh release edit "${ALIAS_TAG}" \
+                --title "${ALIAS_TAG}" \
+                --notes "Latest ${CHANNEL} firmware pointer. Current version: ${TAG}" \
+                --prerelease
+            fi
+
+            gh release upload "${ALIAS_TAG}" \
+              dist/update.bin \
+              dist/update.sig \
+              "dist/${MANIFEST}" \
+              dist/build-info.json \
+              dist/beetle-update.bin \
+              dist/beetle-update.sig \
+              "dist/${BEETLE_MANIFEST}" \
+              dist/beetle-build-info.json \
+              --clobber
+          fi

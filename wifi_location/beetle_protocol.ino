@@ -29,11 +29,11 @@ void HandleTtgoCommand(const String &command)
     game_state = ready;
     stable_candidate_count = 0;
   }
-  else if (command == "github")
+  else if (IsGithubCommand(command))
   {
     game_state = ready;
     stable_candidate_count = 0;
-    RunBeetleOta();
+    RunBeetleOta(command);
   }
 }
 
