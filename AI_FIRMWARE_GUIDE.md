@@ -43,6 +43,7 @@ prd = 3
 v1.2.4-dev.1 -> 10204101
 v1.2.4-dev.2 -> 10204102
 v1.2.4-dev.3 -> 10204103
+v1.2.4-dev.4 -> 10204104
 v1.2.4-rc.1  -> 10204201
 v1.2.4       -> 10204300
 ```
@@ -50,8 +51,8 @@ v1.2.4       -> 10204300
 펌웨어 버전 상수는 `library_and_pin.h`에 둔다.
 
 ```cpp
-#define FIRMWARE_VERSION "1.2.4-dev.3"
-#define FIRMWARE_VERSION_CODE 10204103
+#define FIRMWARE_VERSION "1.2.4-dev.4"
+#define FIRMWARE_VERSION_CODE 10204104
 ```
 
 OTA는 `manifest.version_code > FIRMWARE_VERSION_CODE`일 때만 실행한다.
@@ -72,11 +73,11 @@ manifest 예시:
 ```json
 {
   "channel": "dev",
-  "version": "1.2.4-dev.3",
-  "version_code": 10204103,
-  "firmware_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/update.bin",
-  "signature_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/update.sig",
-  "build_info_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.3/build-info.json",
+  "version": "1.2.4-dev.4",
+  "version_code": 10204104,
+  "firmware_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.4/update.bin",
+  "signature_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.4/update.sig",
+  "build_info_url": "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.4/build-info.json",
   "size": 1217716,
   "firmware_sha256": "...",
   "signature_sha256": "...",
@@ -191,7 +192,7 @@ OTA 실패 시 펌웨어는 `device_state=ota_error`를 서버로 전송한다.
   - `github_dev`: latest dev manifest from `dev-latest`.
   - `github_rc`: latest rc manifest from `rc-latest`.
   - `github_prd`: GitHub production latest release.
-  - `github_dev@v1.2.4-dev.3`: exact dev release tag.
+  - `github_dev@v1.2.4-dev.4`: exact dev release tag.
   - `github_rc@v1.2.4-rc.1`: exact rc release tag.
   - `github_prd@v1.2.4`: exact production release tag.
 - If a tag is present after `@`, the tag manifest wins over compile-time default URLs.
