@@ -122,6 +122,11 @@ jobs:
               pio run -e ttgo-t8-v171 -e beetle-c3-location
             '
 
+      - name: Fix PlatformIO cache ownership
+        if: always()
+        shell: bash
+        run: sudo chown -R "$(id -u):$(id -g)" "${PIO_CACHE_DIR}" || true
+
       - name: Create release artifacts
         shell: bash
         env:
