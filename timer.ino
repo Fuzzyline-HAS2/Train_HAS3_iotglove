@@ -17,7 +17,6 @@ void TimerRun()
 {
   ir_receive_timer.run();
   wifi_timer.run();
-  hacking_timer.run();
   neopixel_timer.run();
   battery_timer.run();
 }

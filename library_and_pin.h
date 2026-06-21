@@ -11,21 +11,31 @@
 #include <Pangodream_18650_CL.h> // 배터리 체크 관련 라이브러리
 
 #include <Arduino.h>
+
+// The glove protocol uses NEC only. Disable the rest of IRremoteESP8266's
+// protocol table to reduce flash use and decode work.
+#ifndef _IR_ENABLE_DEFAULT_
+#define _IR_ENABLE_DEFAULT_ false
+#endif
+
+#ifndef DECODE_NEC
+#define DECODE_NEC true
+#endif
+
+#ifndef SEND_NEC
+#define SEND_NEC true
+#endif
+
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
-#include <IRutils.h>
 
 #include <SimpleTimer.h>
-#include <esp_task_wdt.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "firmware_version.h"
 #include "SecureOTA.h"
 #include "secrets.h"
-
-#define FIRMWARE_VERSION "1.2.4-dev.1"
-#define FIRMWARE_VERSION_CODE 10204101
-#define FIRMWARE_VER FIRMWARE_VERSION_CODE
 
 #ifndef BUILD_GIT_COMMIT
 #define BUILD_GIT_COMMIT "local"

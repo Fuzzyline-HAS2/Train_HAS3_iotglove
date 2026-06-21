@@ -8,12 +8,10 @@
 //============================ Global Variable ============================
 String wifi_name;
 
-bool hacking_state;
 bool hacking;
 int hack_count = 0;
 #define HACK_THRESHOLD 3
 bool revival;
-bool breath_hold;
 bool motor_on;
 bool pending_revival_vibration;
 String ir_decode_data;
@@ -33,6 +31,14 @@ char current_hmi_page[20];
 #define DEFAULT_REVIVAL_TIME_SEC 30
 #define DEBUG_TELNET_PORT 23
 #define ROLE_SEND_RETRY_MS 2000
+#define BEETLE_OTA_TIMEOUT_MS 10000
+#define IR_SEND_INTERVAL_MS 500
+#define BEETLE_RX_BUFFER_SIZE 32
+#define BOOT_SERIAL_BAUD 115200
+#define NEXTION_TFT_STARTUP_WINDOW_MS 1500
+#define BOOT_WIFI_RETRY_MS 15000
+#define BOOT_WIFI_STATUS_MS 1000
+#define BOOT_WIFI_RETRY_PAUSE_MS 250
 
 struct RevivalHelpRecord
 {
@@ -55,6 +61,11 @@ bool sur_connect_pending = false;
 unsigned long sur_connect_started_ms = 0;
 bool page_change_vibration_active = false;
 unsigned long page_change_vibration_started_ms = 0;
+bool beetle_ota_pending = false;
+unsigned long beetle_ota_started_ms = 0;
+unsigned long last_ir_send_ms = 0;
+char beetle_rx_buffer[BEETLE_RX_BUFFER_SIZE];
+uint8_t beetle_rx_len = 0;
 
 typedef enum GameState
 {
@@ -80,6 +91,7 @@ void AddRevivalGaugeBonus(int seconds);
 
 //========================== Nextion TFT Upload ==========================
 void NextionTftUploadInit();
+void NextionTftUploadUseBootSerial();
 bool NextionTftUploadStartupWindow(unsigned long window_ms);
 bool NextionTftUploadPoll();
 void NextionTftUploadRestoreDisplaySerial();
@@ -105,6 +117,7 @@ extern const char FIRMWARE_BUILD_ID[];
  * @brief IoT 글러브에 사용되는 센서, 모듈 세팅
  */
 void SensorInit();
+void BeetleScanWifi();
 
 //================================ Wifi ==================================
 #include <esp_wifi.h>
@@ -127,8 +140,16 @@ void WifiForceLowRateInit();
 HAS2_Wifi has2wifi("http://172.30.1.43");
 
 //================================ OTA ==================================
+#ifndef OTA_CHANNEL
+#define OTA_CHANNEL "dev"
+#endif
+
+#ifndef OTA_MANIFEST_URL
+#define OTA_MANIFEST_URL ""
+#endif
+
 #define OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/manifest-prd.json"
-#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.1/manifest-dev.json"
+#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-dev.2/manifest-dev.json"
 #define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/v1.2.4-rc.1/manifest-rc.json"
 
 SecureOTA ota(
@@ -138,8 +159,6 @@ SecureOTA ota(
   HMAC_SECRET,
   FIRMWARE_VERSION_CODE
 );
-
-bool activate_bool;
 
 void SettingFunc();
 void ReadyFunc();
@@ -165,6 +184,10 @@ void StartPendingRevivalVibration();
 void StopPendingRevivalVibration();
 void StartPageChangeVibration();
 void UpdateVibration();
+void StartBeetleOtaThenTtgoOta();
+void UpdateBeetleOtaFlow();
+void CancelBeetleOtaWait();
+void FinishBeetleOtaWaitAndRunTtgoOta(const char *reason);
 
 //=============================== Neopixel ===============================
 #define NUMPIXELS 4
@@ -186,7 +209,6 @@ void lightColor(int color[]);
 void UpdateBrightness();
 
 //================================== IR ==================================
-#define DECODE_NEC_
 IRsend irsend(IR_SEND_PIN);
 IRrecv irrecv(IR_RECEIVE_PIN);
 
@@ -206,10 +228,6 @@ bool ShouldSendRevivalCooldown(String device_name, unsigned long ttl_ms);
 //=========================== Vibration Motor ===========================
 const int MotorFreq = 5000;
 const int MotorResolution = 8;
-const int MotorLedChannel = 3;
-const int VibrationLedChannel = 4;
-const int MotorMAX_DUTY_CYCLE = (int)(pow(2, MotorResolution) - 1);
-
 #define ARRAYINDEX(X) sizeof(X) / sizeof(int)
 
 #define vibration_mode0 0
@@ -219,23 +237,12 @@ const int MotorMAX_DUTY_CYCLE = (int)(pow(2, MotorResolution) - 1);
 #define vibration_mode4 230
 #define vibration_mode5 240
 
-const int vibration_pattern_1[] = {1, 0, 0, 1, 5, 2, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0}; // BPM 83
 const int vibration_pattern_2[] = {1, 0, 1, 5, 3, 0, 0, 1, 2, 1, 0, 0};                   // BPM 125
-const int vibration_pattern_3[] = {5, 5, 5, 5, 5, 5, 5};
-const int vibration_pattern_4[] = {1, 2, 1, 0, 0, 1, 5, 2, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // BPM 56
 
 void MotorInit();
 int Intensity(int intensity);
 void MotorOn(const int *vibration_pattern, int len);
 void MotorStop();
-
-//=============================== QRD1114 ===============================
-/**
- * @brief QRD1114 근접센서를 통한 근접거리 측정
- *
- * @return float 측정값 (0.1 ~ 20.1 [mm])
- */
-float DistanceCheck();
 
 //=============================== Battery ===============================
 Pangodream_18650_CL BL(ADC_PIN, CONV_FACTOR, READS);
@@ -245,8 +252,6 @@ void BatteryCheck();
 //================================ Timer ================================
 // 타이머 사용 선언
 SimpleTimer ir_receive_timer; // ir 수신 타이머
-SimpleTimer player_ir_send_timer;
-SimpleTimer hacking_timer; // ir 수신 타이머
 SimpleTimer wifi_timer;
 SimpleTimer neopixel_timer;
 SimpleTimer battery_timer;
@@ -257,8 +262,6 @@ void WifiTimerFunc();
 
 // 타이머 설정 관련 함수
 int ir_receive_timer_id;
-int player_ir_send_timer_id;
-int hacking_timer_id;
 int wifi_timer_id;
 int neopixel_timer_id;
 int battery_timer_id;

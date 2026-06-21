@@ -97,18 +97,11 @@ void SendRoleRequest(const char *role)
     has2wifi.Send((String)(const char *)my["device_name"], "role", role);
 }
 
-const char *CurrentOtaChannel()
-{
-    const char *channel = GameJsonText("ota_channel");
-    return channel[0] == '\0' ? "prd" : channel;
-}
-
 String ResolveOtaManifestUrl(const char *channel)
 {
-    const char *manifest_url = GameJsonText("ota_manifest_url");
-    if (manifest_url[0] != '\0')
+    if (strlen(OTA_MANIFEST_URL) > 0)
     {
-        return String(manifest_url);
+        return String(OTA_MANIFEST_URL);
     }
 
     if (TextEquals(channel, "dev"))
@@ -129,7 +122,7 @@ void SendOtaError()
 
 void RunManifestOta()
 {
-    const char *channel = CurrentOtaChannel();
+    const char *channel = OTA_CHANNEL;
     String manifest_url = ResolveOtaManifestUrl(channel);
     if (manifest_url.length() == 0)
     {
@@ -141,6 +134,52 @@ void RunManifestOta()
     {
         SendOtaError();
     }
+}
+
+void StartBeetleOtaThenTtgoOta()
+{
+    if (beetle_ota_pending)
+    {
+        return;
+    }
+
+    beetle_ota_pending = true;
+    beetle_ota_started_ms = millis();
+    DebugPrintln("[OTA] request Beetle OTA");
+    MySerial1.print("github ");
+}
+
+void FinishBeetleOtaWaitAndRunTtgoOta(const char *reason)
+{
+    if (!beetle_ota_pending)
+    {
+        return;
+    }
+
+    beetle_ota_pending = false;
+    beetle_ota_started_ms = 0;
+    DebugPrint("[OTA] Beetle wait finished: ");
+    DebugPrintln(reason);
+    RunManifestOta();
+}
+
+void UpdateBeetleOtaFlow()
+{
+    if (!beetle_ota_pending)
+    {
+        return;
+    }
+
+    if (millis() - beetle_ota_started_ms >= BEETLE_OTA_TIMEOUT_MS)
+    {
+        FinishBeetleOtaWaitAndRunTtgoOta("timeout");
+    }
+}
+
+void CancelBeetleOtaWait()
+{
+    beetle_ota_pending = false;
+    beetle_ota_started_ms = 0;
 }
 
 void StopNeopixelTimer()
@@ -212,7 +251,7 @@ void UpdateVibration()
 void ResetActivateSideEffects(bool clear_revival_help_records)
 {
     motor_on = false;
-    MotorStop();
+    SetMotorIntensity(0);
     StopNeopixelTimer();
     StopSurConnect();
     ir_receive_timer.disable(ir_receive_timer_id);
@@ -588,6 +627,7 @@ void ActivateFunc()
 void ActivateRunOnce()
 {
     game_state = activate;
+    last_ir_send_ms = 0;
 
     MySerial1.print("activate ");
     ledcWrite(BUZZER_PIN, 0);
@@ -600,6 +640,11 @@ void HandleDeviceStateChange()
 {
     const char *device_state = CurrentDeviceState();
     const char *role = CurrentRole();
+
+    if (!TextEquals(device_state, "github"))
+    {
+        CancelBeetleOtaWait();
+    }
 
     if (TextEquals(device_state, "activate"))
     {
@@ -640,7 +685,7 @@ void HandleDeviceStateChange()
     }
     else if (TextEquals(device_state, "github"))
     {
-        RunManifestOta();
+        StartBeetleOtaThenTtgoOta();
     }
     else if (TextEquals(device_state, "photo"))
     {

@@ -66,8 +66,14 @@ void IrSendDataSetup(String device_name)
  */
 void IrSend()
 {
+  unsigned long now = millis();
+  if ((long)(now - last_ir_send_ms) < IR_SEND_INTERVAL_MS)
+  {
+    return;
+  }
+
+  last_ir_send_ms = now;
   irsend.sendNEC(ir_send_data);
-  delay(500);
 }
 
 void ClearRevivalHelpRecords()
@@ -245,21 +251,6 @@ String IrDecoding(uint32_t ir_data)
   return "error";
 }
 
-//******************************************* QRD1114 *******************************************
-/**
- * @brief QRD1114를 통한 근접거리 측정
- *
- * @return float 거리 측정 값
- */
-float DistanceCheck()
-{
-  int proximityADC = analogRead(QRD1114_PIN);
-  float proximityV = (float)proximityADC * 5.0 / 1023.0;
-  delay(100);
-  // Serial.println(proximityV);
-  return proximityV;
-}
-
 //******************************************* Battery *******************************************
 /**
  * @brief ESP32에 내장되어 있는 배터리 측정 GPIO
@@ -268,9 +259,9 @@ void BatteryCheck()
 {
   analogRead(34);
   BL.pinRead();
-  BL.getBatteryVolts();
+  float battery_volts = BL.getBatteryVolts();
 
-  has2wifi.Send((String)(const char *)my["device_name"], "battery_remaining", String(BL.getBatteryVolts(), 2));
+  has2wifi.Send((String)(const char *)my["device_name"], "battery_remaining", String(battery_volts, 2));
 }
 
 void MotorInit()
@@ -332,6 +323,7 @@ void MotorOn(const int *vibration_pattern, int len)
 
 void MotorStop()
 {
+  ledcWrite(MOTOR_PWMA_PIN, 0);
   digitalWrite(MOTOR_INA1_PIN, LOW);
   digitalWrite(MOTOR_INA2_PIN, LOW);
 }
@@ -386,31 +378,66 @@ void tagger_blink()
 /**
  * @brief 게임 내부 가장 가까이에 있는 와이파이 이름을 Beetle로부터 수신받음
  */
+void ProcessBeetleToken(const char *token)
+{
+  if (token == nullptr || token[0] == '\0')
+  {
+    return;
+  }
+
+  wifi_name = token;
+  DebugPrintln(wifi_name);
+
+  if (wifi_name == "reset")
+  {
+    MySerial1.print((String)(const char *)my["device_state"] + " ");
+    return;
+  }
+  if (wifi_name == "beetle_ota_start")
+  {
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_start");
+    return;
+  }
+  if (wifi_name == "beetle_ota_skip")
+  {
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_skip");
+    return;
+  }
+  if (wifi_name == "beetle_ota_error")
+  {
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_error");
+    return;
+  }
+
+  if (game_state == activate && wifi_name.startsWith("HAS2"))
+  {
+    has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);
+  }
+}
+
 void BeetleScanWifi()
 {
-  if (MySerial1.available())
+  while (MySerial1.available() > 0)
   {
-    wifi_name = MySerial1.readStringUntil(' ');
-    DebugPrintln(wifi_name);
-    if (wifi_name == "reset")
+    char c = (char)MySerial1.read();
+    if (c == ' ' || c == '\n' || c == '\r' || c == '\t')
     {
-      MySerial1.print((String)(const char *)my["device_state"] + " ");
-    }
-    if (game_state == activate)
-    {
-      // if (wifi_name.startsWith("HAS2"))
-      if (wifi_name.startsWith("badland"))
+      if (beetle_rx_len > 0)
       {
-        has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);
+        beetle_rx_buffer[beetle_rx_len] = '\0';
+        ProcessBeetleToken(beetle_rx_buffer);
+        beetle_rx_len = 0;
       }
-      else
-      {
-        MySerial1.read();
-      }
+      continue;
     }
-    while (MySerial1.available() > 0)
+
+    if (beetle_rx_len < BEETLE_RX_BUFFER_SIZE - 1)
     {
-      MySerial1.read();
+      beetle_rx_buffer[beetle_rx_len++] = c;
+    }
+    else
+    {
+      beetle_rx_len = 0;
     }
   }
 }

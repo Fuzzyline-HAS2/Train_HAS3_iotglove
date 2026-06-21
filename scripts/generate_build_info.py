@@ -19,11 +19,11 @@ def run_text(command):
         return ""
 
 
-def read_platformio_config():
+def read_platformio_config(env_name: str):
     config = configparser.RawConfigParser()
     config.optionxform = str
     config.read(ROOT / "platformio.ini", encoding="utf-8")
-    section = "env:ttgo-t8-v171"
+    section = f"env:{env_name}"
     if not config.has_section(section):
         return {}
     return {key: value.strip() for key, value in config.items(section)}
@@ -65,14 +65,18 @@ def main() -> None:
     parser.add_argument("--signature", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--channel", required=True)
+    parser.add_argument("--env", default="ttgo-t8-v171")
+    parser.add_argument("--firmware-asset", default="update.bin")
+    parser.add_argument("--signature-asset", default="update.sig")
     args = parser.parse_args()
 
     firmware_path = pathlib.Path(args.firmware)
     signature_path = pathlib.Path(args.signature)
     output_path = pathlib.Path(args.output)
     fw = read_firmware_version()
-    pio = read_platformio_config()
+    pio = read_platformio_config(args.env)
     lib_deps = parse_lib_deps(pio.get("lib_deps", ""))
+    env_vendor_libraries = vendor_libraries() if pio.get("lib_extra_dirs", "") else []
 
     build_info = {
         "firmware_version": fw.version,
@@ -91,19 +95,20 @@ def main() -> None:
             "platform": pio.get("platform", ""),
             "framework": pio.get("framework", ""),
             "board": pio.get("board", ""),
+            "platformio_env": args.env,
             "esp32_arduino_core": "3.3.8",
         },
-        "libraries": lib_deps + vendor_libraries() + [
+        "libraries": lib_deps + env_vendor_libraries + [
             {"source": "local", "name": "SecureOTA", "version": fw.version}
         ],
         "artifacts": {
             "firmware": {
-                "file": "update.bin",
+                "file": args.firmware_asset,
                 "size": firmware_path.stat().st_size,
                 "sha256": sha256_file(firmware_path),
             },
             "signature": {
-                "file": "update.sig",
+                "file": args.signature_asset,
                 "size": signature_path.stat().st_size,
                 "sha256": sha256_file(signature_path),
             },

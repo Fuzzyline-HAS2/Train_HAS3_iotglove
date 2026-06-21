@@ -18,6 +18,7 @@ static uint32_t nextion_tft_uploaded_bytes = 0;
 static bool nextion_tft_upload_active = false;
 static bool nextion_tft_serial_ready = false;
 static bool nextion_tft_session_done = false;
+static uint32_t nextion_tft_pc_serial_baud = 0;
 
 String NextionTftByteToHex(uint8_t value)
 {
@@ -518,18 +519,36 @@ void NextionTftReceiveChunk(const String &line)
   }
 }
 
-void NextionTftUploadInit()
+void NextionTftSetPcSerialBaud(uint32_t baud)
 {
-  if (nextion_tft_serial_ready)
+  if (nextion_tft_serial_ready && nextion_tft_pc_serial_baud == baud)
   {
     return;
   }
 
+  if (nextion_tft_serial_ready)
+  {
+    Serial.flush();
+    Serial.end();
+    delay(20);
+  }
+
   Serial.setRxBufferSize(NEXTION_TFT_PC_RX_BUFFER_SIZE);
-  MySerial2.setRxBufferSize(NEXTION_TFT_NEXTION_RX_BUFFER_SIZE);
-  Serial.begin(NEXTION_TFT_PC_BAUD);
+  Serial.begin(baud);
   Serial.setTimeout(50);
   nextion_tft_serial_ready = true;
+  nextion_tft_pc_serial_baud = baud;
+}
+
+void NextionTftUploadInit()
+{
+  MySerial2.setRxBufferSize(NEXTION_TFT_NEXTION_RX_BUFFER_SIZE);
+  NextionTftSetPcSerialBaud(NEXTION_TFT_PC_BAUD);
+}
+
+void NextionTftUploadUseBootSerial()
+{
+  NextionTftSetPcSerialBaud(BOOT_SERIAL_BAUD);
 }
 
 void NextionTftUploadRestoreDisplaySerial()
@@ -664,9 +683,11 @@ bool NextionTftStartFromLine(const String &line)
   nextion_tft_upload_active = false;
   nextion_tft_expected_bytes = 0;
   nextion_tft_uploaded_bytes = 0;
+  NextionTftSetPcSerialBaud(NEXTION_TFT_PC_BAUD);
   Serial.println("NXUP_READY 1");
   NextionTftRunSession();
   NextionTftUploadRestoreDisplaySerial();
+  NextionTftUploadUseBootSerial();
   return true;
 }
 

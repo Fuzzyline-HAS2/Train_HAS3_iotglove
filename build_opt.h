@@ -1,0 +1,3 @@
+-D_IR_ENABLE_DEFAULT_=false
+-DDECODE_NEC=true
+-DSEND_NEC=true

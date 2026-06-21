@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-HEADER = ROOT / "library_and_pin.h"
+HEADER = ROOT / "firmware_version.h"
 
 
 SEMVER_RE = re.compile(

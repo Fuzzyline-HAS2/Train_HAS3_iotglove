@@ -18,6 +18,9 @@ def main() -> None:
     parser.add_argument("--firmware", required=True)
     parser.add_argument("--signature", required=True)
     parser.add_argument("--build-info", required=True)
+    parser.add_argument("--firmware-asset", default="update.bin")
+    parser.add_argument("--signature-asset", default="update.sig")
+    parser.add_argument("--build-info-asset", default="build-info.json")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
@@ -31,9 +34,9 @@ def main() -> None:
         "channel": channel,
         "version": firmware.version,
         "version_code": firmware.version_code,
-        "firmware_url": release_url(args.repo, args.tag, "update.bin"),
-        "signature_url": release_url(args.repo, args.tag, "update.sig"),
-        "build_info_url": release_url(args.repo, args.tag, "build-info.json"),
+        "firmware_url": release_url(args.repo, args.tag, args.firmware_asset),
+        "signature_url": release_url(args.repo, args.tag, args.signature_asset),
+        "build_info_url": release_url(args.repo, args.tag, args.build_info_asset),
         "size": firmware_path.stat().st_size,
         "firmware_sha256": sha256_file(firmware_path),
         "signature_sha256": sha256_file(signature_path),
