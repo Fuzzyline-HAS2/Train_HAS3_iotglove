@@ -4,7 +4,7 @@ void InitBeetleOta()
 {
   beetle_ota.setLogStream(Serial);
   beetle_ota.setOnSkip([]() {
-    MySerial1.print("beetle_ota_skip ");
+    MySerial1.print("beetle_ota_skip\n");
   });
 }
 
@@ -148,11 +148,11 @@ void RunBeetleOta(const String &command)
   Serial.print(channel);
   Serial.print(" tag=");
   Serial.println(tag.length() > 0 ? tag : "(latest)");
-  MySerial1.print("beetle_ota_start ");
+  MySerial1.print("beetle_ota_start\n");
 
   if (!EnsureWifiConnected())
   {
-    MySerial1.print("beetle_ota_error ");
+    MySerial1.print("beetle_ota_error\n");
     StopBeetleWifi();
     return;
   }
@@ -160,7 +160,7 @@ void RunBeetleOta(const String &command)
   String manifest_url = ResolveBeetleManifestUrl(channel, tag);
   if (manifest_url.length() == 0)
   {
-    MySerial1.print("beetle_ota_error ");
+    MySerial1.print("beetle_ota_error\n");
     StopBeetleWifi();
     return;
   }
@@ -168,7 +168,7 @@ void RunBeetleOta(const String &command)
   bool ok = beetle_ota.checkManifest(manifest_url.c_str(), channel.c_str(), true);
   if (!ok)
   {
-    MySerial1.print("beetle_ota_error ");
+    MySerial1.print("beetle_ota_error\n");
   }
 
   StopBeetleWifi();

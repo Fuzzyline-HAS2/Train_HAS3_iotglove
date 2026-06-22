@@ -13,11 +13,17 @@ HardwareSerial MySerial1(1);
 GameState game_state = setting;
 
 BLEScan *ble_scan = nullptr;
-BleCandidate ble_candidates[BLE_MAX_CANDIDATES];
-int ble_candidate_count = 0;
-String stable_candidate_id;
-String last_sent_id;
-int stable_candidate_count = 0;
+BleSample ble_samples[BLE_MAX_SAMPLES];
+uint8_t ble_sample_count = 0;
+BleDeviceState ble_devices[BLE_MAX_DEVICES];
+int8_t stable_room_index = -1;
+int8_t candidate_room_index = -1;
+unsigned long candidate_started_ms = 0;
+unsigned long last_room_sent_ms = 0;
+unsigned long last_valid_has3_ms = 0;
+unsigned long ble_location_started_ms = 0;
+unsigned long last_ble_eval_ms = 0;
+bool ble_scan_segment_done = false;
 
 SecureOTA beetle_ota(
     "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/beetle-update.bin",
@@ -37,10 +43,11 @@ void setup()
 
   WiFi.mode(WIFI_OFF);
   InitBleScanner();
+  ResetBleLocationState();
   InitBeetleOta();
 
   Serial.println(BEETLE_BUILD_ID);
-  MySerial1.print("reset ");
+  MySerial1.print("reset\n");
 }
 
 void loop()

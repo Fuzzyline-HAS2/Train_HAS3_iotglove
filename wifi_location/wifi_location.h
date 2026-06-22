@@ -9,6 +9,7 @@
 #include <BLEAdvertisedDevice.h>
 
 #include "../firmware_version.h"
+#include "../location_protocol.h"
 #include "../secrets.h"
 #include "../SecureOTA.h"
 
@@ -16,12 +17,18 @@
 #define SERIAL1_TX_PIN 5
 #define BEETLE_LED_PIN 10
 
-#define BLE_SCAN_SECONDS 3
+#define BLE_SCAN_SECONDS 1
 #define BLE_SCAN_INTERVAL 100
-#define BLE_SCAN_WINDOW 99
-#define BLE_NAME_PREFIX "HAS2"
-#define BLE_STABLE_REQUIRED 2
-#define BLE_MAX_CANDIDATES 16
+#define BLE_SCAN_WINDOW 100
+#define BLE_MAX_SAMPLES 96
+#define BLE_MAX_DEVICES 24
+#define BLE_SAMPLE_WINDOW_MS 1500
+#define BLE_DEVICE_EMA_KEEP_MS 5000
+#define BLE_EVAL_INTERVAL_MS 200
+#define BLE_SWITCH_HOLD_MS 1200
+#define BLE_UNKNOWN_TIMEOUT_MS 5000
+#define BLE_ROOM_REPEAT_MS 1000
+#define BLE_MIN_DEVICE_SAMPLES 2
 
 #define WIFI_CONNECT_TIMEOUT_MS 15000
 
@@ -48,31 +55,52 @@ enum GameState
   activate
 };
 
-struct BleCandidate
+struct BleSample
 {
-  String id;
-  int rssi_sum;
-  int samples;
+  char device_name[HAS3_DEVICE_NAME_BUFFER_SIZE];
+  uint8_t room_index;
+  int8_t rssi;
+  unsigned long timestamp_ms;
+};
+
+struct BleDeviceState
+{
+  char device_name[HAS3_DEVICE_NAME_BUFFER_SIZE];
+  uint8_t room_index;
+  bool has_ema;
+  float ema;
+  unsigned long last_seen_ms;
+};
+
+struct BleRoomScore
+{
+  bool active;
+  float score;
+  uint8_t devices;
 };
 
 extern const char BEETLE_BUILD_ID[];
 extern HardwareSerial MySerial1;
 extern GameState game_state;
 extern BLEScan *ble_scan;
-extern BleCandidate ble_candidates[BLE_MAX_CANDIDATES];
-extern int ble_candidate_count;
-extern String stable_candidate_id;
-extern String last_sent_id;
-extern int stable_candidate_count;
+extern BleSample ble_samples[BLE_MAX_SAMPLES];
+extern uint8_t ble_sample_count;
+extern BleDeviceState ble_devices[BLE_MAX_DEVICES];
+extern int8_t stable_room_index;
+extern int8_t candidate_room_index;
+extern unsigned long candidate_started_ms;
+extern unsigned long last_room_sent_ms;
+extern unsigned long last_valid_has3_ms;
+extern unsigned long ble_location_started_ms;
+extern unsigned long last_ble_eval_ms;
+extern bool ble_scan_segment_done;
 extern SecureOTA beetle_ota;
 
 bool TextEquals(const char *value, const char *expected);
 
 void InitBleScanner();
-void ResetBleCandidates();
-void AddBleSample(const String &id, int rssi);
-String BestBleCandidate();
-void SendStableLocation(const String &candidate_id);
+void ResetBleLocationState();
+void AddBleSample(const char *device_name, const char *room, int rssi, unsigned long timestamp_ms);
 void ScanBleLocation();
 
 void InitBeetleOta();

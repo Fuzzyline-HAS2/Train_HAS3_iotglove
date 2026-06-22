@@ -18,21 +18,22 @@ void HandleTtgoCommand(const String &command)
   if (command == "activate")
   {
     game_state = activate;
+    ResetBleLocationState();
   }
   else if (command == "setting")
   {
     game_state = setting;
-    stable_candidate_count = 0;
+    ResetBleLocationState();
   }
   else if (command == "ready")
   {
     game_state = ready;
-    stable_candidate_count = 0;
+    ResetBleLocationState();
   }
   else if (IsGithubCommand(command))
   {
     game_state = ready;
-    stable_candidate_count = 0;
+    ResetBleLocationState();
     RunBeetleOta(command);
   }
 }
