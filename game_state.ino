@@ -332,7 +332,7 @@ void UpdateVibration()
 
     bool should_vibrate = game_state == activate &&
                           IsPlayerRole(CurrentRole()) &&
-                          (motor_on || pending_revival_vibration);
+                          ((motor_on && !location_vibe_muted) || pending_revival_vibration);
     if (should_vibrate)
     {
         MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
@@ -346,6 +346,7 @@ void UpdateVibration()
 void ResetActivateSideEffects(bool clear_revival_help_records)
 {
     motor_on = false;
+    location_vibe_muted = false;
     SetMotorIntensity(0);
     StopNeopixelTimer();
     StopSurConnect();
@@ -481,7 +482,7 @@ void UpdateTagCaptureFlow()
     }
 
     unsigned long elapsed_ms = millis() - tag_capture_started_ms;
-    bool server_full = GameJsonInt("taken_chip", 0) >= GameJsonInt("max_taken_chip", 1);
+    bool server_full = GameJsonInt("taken_chip", 0) >= GameJsonInt("max_chip", 1);
     bool min_elapsed = elapsed_ms >= TAG_CAPTURE_MIN_MS;
     bool timeout_elapsed = elapsed_ms >= TAG_CAPTURE_TIMEOUT_MS;
 
@@ -556,7 +557,7 @@ void ShowRolePage()
         hacking = false;
         lightColor(purple);
         ir_receive_timer.disable(ir_receive_timer_id);
-        if (GameJsonInt("taken_chip", 0) >= GameJsonInt("max_taken_chip", 1))
+        if (GameJsonInt("taken_chip", 0) >= GameJsonInt("max_chip", 1))
         {
             PageChange("pgTagFull");
         }
@@ -708,7 +709,7 @@ void ActivateFunc()
 
     if (CurrentDeviceStateIs("activate"))
     {
-        if (IsTaggerRole(role) && GameJsonInt("taken_chip", 0) < GameJsonInt("max_taken_chip", 1))
+        if (IsTaggerRole(role) && GameJsonInt("taken_chip", 0) < GameJsonInt("max_chip", 1))
         {
             IrSend();
         }
@@ -843,9 +844,9 @@ void DataChange()
         HandleLifeChipChange();
     }
 
-    if (GameJsonInt("revival_cooldown_count", 0) != cur["revival_cooldown_count"].as<int>())
+    if (GameJsonInt("revival_cooldown_count", 0) != last_revival_cooldown_count)
     {
-        ApplyRevivalCooldownChange(cur["revival_cooldown_count"].as<int>());
+        ApplyRevivalCooldownChange(last_revival_cooldown_count);
     }
 
     if (GameJsonInt("battery_pack", 0) != cur["battery_pack"].as<int>())

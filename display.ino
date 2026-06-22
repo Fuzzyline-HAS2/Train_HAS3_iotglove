@@ -67,11 +67,11 @@ void UpdateHmiResults()
     int batteries_gained = JsonIntOrDefault("batteries_gained", 0);
     int round_taken_chip = JsonIntOrDefault("round_taken_chip", 0);
 
-    SendHmiPic("pgSurResult", "pSurLevel", "vSurLvlPicNum", level, 0, 99);
-    SendHmiPic("pgSurResult", "pSurTakenLives", "vSurLivPicNum", lives_lost, 0, 30);
-    SendHmiPic("pgSurResult", "pBatCnt", "vBatTotPicNum", batteries_gained, 0, 20);
-    SendHmiPic("pgTagResult", "pTagLevel", "vTagLvlPicNum", level, 0, 99);
-    SendHmiPic("pgTagResult", "pTagTakenLives", "vTagLivPicNum", round_taken_chip, 0, 30);
+    SendHmiValue("pgSurResult.vSurLevel", ClampDisplayValue(level, 0, 99));
+    SendHmiValue("pgSurResult.vSurTakenLives", ClampDisplayValue(lives_lost, 0, 30));
+    SendHmiValue("pgSurResult.vBatTotal", ClampDisplayValue(batteries_gained, 0, 20));
+    SendHmiValue("pgTagResult.vTagLevel", ClampDisplayValue(level, 0, 99));
+    SendHmiValue("pgTagResult.vTagTakenLives", ClampDisplayValue(round_taken_chip, 0, 30));
 }
 
 void AddRevivalGaugeBonus(int seconds)
@@ -81,6 +81,10 @@ void AddRevivalGaugeBonus(int seconds)
         return;
     }
 
+    // HMI(pgGhost)의 게이지 타이머 tScreenRefresh는 tim=1000ms마다 vTick을 +1 한다(초당 1 tick).
+    //   완료 시점: vTick >= vReviveTimeMax * (1000 / tim)
+    // 도움받은 seconds만큼 막대를 앞으로 당기려면 (seconds * 1000/tim) tick을 더한다.
+    // 1000/tim 은 REVIVAL_TICK_PER_SEC 상수로 박아 둔다(tim 변경 시 함께 갱신).
     int bonus_ticks = seconds * REVIVAL_TICK_PER_SEC;
     char cmd[64];
     snprintf(cmd, sizeof(cmd), "pgGhost.vTick.val=pgGhost.vTick.val+%d", bonus_ticks);

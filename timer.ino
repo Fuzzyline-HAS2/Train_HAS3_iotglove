@@ -4,7 +4,9 @@
  */
 void TimerInit()
 {
-  ir_receive_timer_id = ir_receive_timer.setInterval(500, IrReceive);
+  // IRrecv는 프레임 캡처 후 resume() 전까지 다음 수신을 멈추므로, 자주 폴링해야
+  // STOP 구간에 프레임이 갇혀 누락되는 일이 없다. (지연 단축이 아니라 수신 신뢰성 목적)
+  ir_receive_timer_id = ir_receive_timer.setInterval(20, IrReceive);
   ir_receive_timer.disable(ir_receive_timer_id);
   wifi_timer_id = wifi_timer.setInterval(1000, WifiTimerFunc);
   battery_timer_id = battery_timer.setInterval(60000, BatteryCheck);

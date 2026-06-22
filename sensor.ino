@@ -148,6 +148,14 @@ void IrReceive()
       return;
     }
 
+    // NEC 32bit 프레임만 수용한다. 다른 프로토콜/노이즈/깨진 캡처가 우연히
+    // 보수(complement) 체크를 통과해 G208P208 같은 쓰레기값이 나오는 것을 막는다.
+    if (results.decode_type != NEC || results.bits != kNECBits)
+    {
+      irrecv.resume();
+      return;
+    }
+
     ir_decode_data = IrDecoding((uint32_t)results.value);
     if ((!ir_receive_error) && (ir_decode_data != "error"))
     {
@@ -236,7 +244,7 @@ String IrDecoding(uint32_t ir_data)
   // 1. 수신데이터 오류 판별
   if ((address | address_bar) == 0xFF)
   {
-    if ((command | command_bar) == 0xFF)
+    if ((command | command_bar) == 0xFF && address <= 9 && command <= 9)
     {
       String group_data = (String)(address);
       String player_data = (String)(command);
@@ -378,56 +386,188 @@ void tagger_blink()
 /**
  * @brief 게임 내부 가장 가까이에 있는 와이파이 이름을 Beetle로부터 수신받음
  */
-void ProcessBeetleToken(const char *token)
+bool SendLocationToServer(const String &location)
 {
-  if (token == nullptr || token[0] == '\0')
+  String device_name = (String)(const char *)my["device_name"];
+  if (device_name.length() == 0)
+  {
+    DebugPrintln("[TTGO] send failed: missing device_name");
+    return false;
+  }
+
+  HTTPClient location_http;
+  String request = String("http://172.30.1.43/has2.php?request=Send&table=device&key=") +
+                   device_name + "&column=location&value=" + location;
+  location_http.begin(request);
+  int http_code = location_http.GET();
+  if (http_code == HTTP_CODE_OK)
+  {
+    location_http.end();
+    return true;
+  }
+
+  DebugPrintf("[TTGO] send http failed code=%d location=%s\n", http_code, location.c_str());
+  location_http.end();
+  return false;
+}
+
+void QueueLocationSend(const String &location, bool force_now)
+{
+  if (location == HAS3_UNKNOWN_ROOM)
+  {
+    if (!location_vibe_muted)
+    {
+      DebugPrintln("[TTGO] location unknown: mute proximity vibration");
+    }
+    location_vibe_muted = true;
+    pending_location = "";
+    last_location_send_fail_at = 0;
+    return;
+  }
+
+  if (location_vibe_muted)
+  {
+    DebugPrint("[TTGO] location recovered: unmute proximity vibration=");
+    DebugPrintln(location);
+    location_vibe_muted = false;
+  }
+
+  if (location == last_sent_location && pending_location.length() == 0)
+  {
+    DebugPrint("[TTGO] skip duplicate location=");
+    DebugPrintln(location);
+    return;
+  }
+
+  unsigned long now = millis();
+  if (!force_now && pending_location == location &&
+      last_location_send_fail_at != 0 &&
+      now - last_location_send_fail_at < 3000)
+  {
+    DebugPrint("[TTGO] retry pending location=");
+    DebugPrint(location);
+    DebugPrint(" wait=");
+    DebugPrintln((unsigned long)(3000 - (now - last_location_send_fail_at)));
+    return;
+  }
+
+  DebugPrint("[TTGO] send location=");
+  DebugPrintln(location);
+  if (SendLocationToServer(location))
+  {
+    last_sent_location = location;
+    pending_location = "";
+    last_location_send_fail_at = 0;
+    DebugPrint("[TTGO] send success location=");
+    DebugPrintln(location);
+  }
+  else
+  {
+    pending_location = location;
+    last_location_send_fail_at = now;
+    DebugPrint("[TTGO] send failed location=");
+    DebugPrintln(location);
+  }
+}
+
+void RetryPendingLocationSend()
+{
+  if (pending_location.length() == 0 || last_location_send_fail_at == 0)
   {
     return;
   }
 
-  wifi_name = token;
-  DebugPrintln(wifi_name);
+  if (millis() - last_location_send_fail_at >= 3000)
+  {
+    QueueLocationSend(pending_location, true);
+  }
+}
 
-  if (wifi_name == "reset")
+void ProcessBeetleLine(const char *line, String &loop_location_candidate)
+{
+  if (line == nullptr || line[0] == '\0')
+  {
+    return;
+  }
+
+  String frame = line;
+  frame.trim();
+  DebugPrintln(frame);
+
+  if (frame == "reset")
   {
     MySerial1.print((String)(const char *)my["device_state"] + " ");
     return;
   }
-  if (wifi_name == "beetle_ota_start")
+  if (frame == "beetle_ota_start")
   {
     FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_start");
     return;
   }
-  if (wifi_name == "beetle_ota_skip")
+  if (frame == "beetle_ota_skip")
   {
     FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_skip");
     return;
   }
-  if (wifi_name == "beetle_ota_error")
+  if (frame == "beetle_ota_error")
   {
     FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_error");
     return;
   }
 
-  if (game_state == activate && wifi_name.startsWith("HAS2"))
+  if (!frame.startsWith("ROOM:"))
   {
-    has2wifi.Send((String)(const char *)my["device_name"], "location", wifi_name);
+    DebugPrint("[TTGO] invalid frame: ");
+    DebugPrintln(frame);
+    return;
   }
+
+  String room = frame.substring(5);
+  room.trim();
+  if (!Has3IsValidRoom(room.c_str()))
+  {
+    DebugPrint("[TTGO] invalid frame: ");
+    DebugPrintln(frame);
+    return;
+  }
+
+  DebugPrint("[TTGO] received room=");
+  DebugPrintln(room);
+  loop_location_candidate = room;
 }
 
 void BeetleScanWifi()
 {
+  String loop_location_candidate;
+
   while (MySerial1.available() > 0)
   {
     char c = (char)MySerial1.read();
-    if (c == ' ' || c == '\n' || c == '\r' || c == '\t')
+    if (c == '\n')
     {
+      if (beetle_rx_overflow)
+      {
+        beetle_rx_overflow = false;
+        beetle_rx_len = 0;
+        continue;
+      }
+
       if (beetle_rx_len > 0)
       {
         beetle_rx_buffer[beetle_rx_len] = '\0';
-        ProcessBeetleToken(beetle_rx_buffer);
+        ProcessBeetleLine(beetle_rx_buffer, loop_location_candidate);
         beetle_rx_len = 0;
       }
+      continue;
+    }
+
+    if (c == '\r')
+    {
+      continue;
+    }
+
+    if (beetle_rx_overflow)
+    {
       continue;
     }
 
@@ -437,7 +577,24 @@ void BeetleScanWifi()
     }
     else
     {
+      DebugPrintln("[TTGO] uart overflow, drop line");
+      beetle_rx_overflow = true;
       beetle_rx_len = 0;
     }
   }
+
+  if (loop_location_candidate.length() > 0)
+  {
+    if (game_state == activate)
+    {
+      QueueLocationSend(loop_location_candidate, true);
+    }
+    else
+    {
+      DebugPrint("[TTGO] skip location while inactive=");
+      DebugPrintln(loop_location_candidate);
+    }
+  }
+
+  RetryPendingLocationSend();
 }
