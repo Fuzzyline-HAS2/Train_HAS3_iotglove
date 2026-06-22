@@ -33,7 +33,7 @@
 | `lives_lost` | int | 필수 | 결과 화면에서 생존자가 잃은 생명 수 |
 | `batteries_gained` | int | 필수 | 결과 화면에서 생존자가 획득한 배터리 수 |
 | `round_taken_chip` | int | 필수 | 결과 화면에서 술래가 해당 라운드에 획득한 생명 수 |
-| `max_taken_chip` | int | 권장 | 술래 화면 `pgTagFull` 전환 기준. 없으면 펌웨어 기본값 사용 필요 |
+| `max_chip` | int | 권장 | 술래 화면 `pgTagFull` 전환 기준. 없으면 펌웨어 기본값 사용 필요 |
 | `revival_help_log` | table/log | 선택 | 서버에서 중복 도움 이벤트까지 막고 싶을 때 사용 |
 
 ## 서버 동작 변경

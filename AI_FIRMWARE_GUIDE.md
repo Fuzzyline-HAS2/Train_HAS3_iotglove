@@ -256,7 +256,12 @@ commands:
 .\scripts\pio_docker_build.ps1
 .\scripts\pio_docker_build.ps1 -Env ttgo-t8-v171
 .\scripts\pio_docker_build.ps1 -Env beetle-c3-location
+.\scripts\pio_docker_build.ps1 -Env ttgo-t8-v171,beetle-c3-location
 ```
+
+Do not use raw `docker run ... pio run ...` for normal verification builds.
+The helper script is the canonical local build entry point because it always
+mounts the cache volume and keeps token forwarding consistent.
 
 The local script mounts the named Docker volume
 `iotglove-platformio-cache:/opt/platformio`, so PlatformIO tools survive
@@ -264,5 +269,5 @@ The local script mounts the named Docker volume
 later runs should be much faster.
 
 If a clean local Docker build must fetch private HAS2 libraries, set
-`HAS2_LIB_TOKEN` in the current PowerShell session before running the script.
-Do not put the token in firmware source code.
+`HAS2_LIB_TOKEN` in the current PowerShell session and pass
+`-ForwardHas2Token` explicitly. Do not put the token in firmware source code.
