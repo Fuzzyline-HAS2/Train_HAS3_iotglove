@@ -287,6 +287,12 @@ void StopNeopixelTimer()
 
 void SetMotorIntensity(int intensity)
 {
+    if (vibration_disabled)
+    {
+        MotorStop();
+        return;
+    }
+
     if (intensity <= 0)
     {
         ledcWrite(MOTOR_PWMA_PIN, 0);

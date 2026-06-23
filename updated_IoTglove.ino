@@ -231,6 +231,8 @@ const char *GetTrainRole()
 
 void TrainModeInit()
 {
+  vibration_disabled = true;
+
   const char *role = GetTrainRole();
   if (strcmp(role, "tagger") == 0)
   {

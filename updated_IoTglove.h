@@ -52,6 +52,7 @@ struct RevivalHelpRecord
 };
 
 RevivalHelpRecord revival_help_records[REVIVAL_HELP_RECORDS];
+bool vibration_disabled = false;
 bool revival_timer_active = false;
 bool revival_finish_page = false;
 bool revival_finish_sent = false;

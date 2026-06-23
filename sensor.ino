@@ -314,6 +314,8 @@ int Intensity(int intensity)
 // step_ms 간격으로 다음 세기로 넘어가며, 레벨이 바뀌면 패턴을 처음부터 다시 시작한다.
 void MotorStep(int level)
 {
+  if (vibration_disabled) return;
+
   if (level < 1 || level > VIBE_PATTERN_COUNT)
   {
     MotorStop();
