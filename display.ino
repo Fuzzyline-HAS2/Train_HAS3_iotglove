@@ -120,11 +120,58 @@ void DisplaySet()
     SendHmiValue("pgGhost.vReviveTimeMax", JsonIntOrDefault("revival_time", DEFAULT_REVIVAL_TIME_SEC));
 }
 
+bool ReadNextionPageName(char *buf, uint8_t buf_len)
+{
+    static char rx[32];
+    static uint8_t rx_len = 0;
+
+    while (nexSerial.available() > 0)
+    {
+        char c = (char)nexSerial.read();
+        if (c == '\r') continue;
+        if (c == '\n')
+        {
+            rx[rx_len] = '\0';
+            if (rx_len > 0)
+            {
+                strncpy(buf, rx, buf_len - 1);
+                buf[buf_len - 1] = '\0';
+                rx_len = 0;
+                return true;
+            }
+            rx_len = 0;
+            continue;
+        }
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+        {
+            if (rx_len < sizeof(rx) - 1)
+                rx[rx_len++] = c;
+        }
+        else
+        {
+            rx_len = 0;
+        }
+    }
+    return false;
+}
+
+void ApplyNeoPixelForPage(const char *page)
+{
+    if      (strcmp(page, "pgStart")    == 0) lightColor(white);
+    else if (strcmp(page, "pgInfo")     == 0) lightColor(red);
+    else if (strcmp(page, "pgSurvivor") == 0) lightColor(green);
+    else if (strcmp(page, "pgGhost")    == 0) lightColor(blue);
+    else if (strcmp(page, "pgAltarTag") == 0) lightColor(purple);
+    else if (strcmp(page, "pgTagEmpty") == 0) lightColor(purple);
+}
+
 void DisplayCheck()
 {
-    while (MySerial2.available() > 0)
+    char page[32];
+    if (ReadNextionPageName(page, sizeof(page)))
     {
-        MySerial2.read();
+        ApplyNeoPixelForPage(page);
+        snprintf(current_hmi_page, sizeof(current_hmi_page), "%s", page);
     }
 }
 

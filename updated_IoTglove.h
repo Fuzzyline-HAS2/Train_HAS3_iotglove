@@ -105,6 +105,8 @@ void UpdateHmiBattery();
 void UpdateHmiResults();
 void AddRevivalGaugeBonus(int seconds);
 bool ReadNextionVersion(uint32_t *version);
+bool ReadNextionPageName(char *buf, uint8_t buf_len);
+void ApplyNeoPixelForPage(const char *page);
 
 //========================== Nextion TFT Upload ==========================
 void NextionTftUploadInit();
