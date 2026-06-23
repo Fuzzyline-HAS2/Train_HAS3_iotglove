@@ -501,22 +501,27 @@ void ProcessBeetleLine(const char *line, String &loop_location_candidate)
   }
   if (frame == "beetle_ota_start")
   {
-    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_start");
-    return;
-  }
-  if (frame == "beetle_ota_skip")
-  {
-    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_skip");
-    return;
-  }
-  if (frame == "beetle_ota_error")
-  {
-    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_error");
+    // Wait for a terminal result (done/skip/error) before running TTGO OTA,
+    // so the Beetle outcome is visible on telnet before TTGO reboots.
+    DebugPrintln("[TTGO] beetle OTA started, waiting for result");
     return;
   }
   if (frame == "beetle_ota_done")
   {
     DebugPrintln("[TTGO] beetle OTA success");
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_done");
+    return;
+  }
+  if (frame == "beetle_ota_skip")
+  {
+    DebugPrintln("[TTGO] beetle OTA skipped (already current)");
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_skip");
+    return;
+  }
+  if (frame == "beetle_ota_error")
+  {
+    DebugPrintln("[TTGO] beetle OTA error");
+    FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_error");
     return;
   }
 

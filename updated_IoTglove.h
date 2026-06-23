@@ -32,7 +32,7 @@ char current_hmi_page[20];
 #define DEFAULT_REVIVAL_TIME_SEC 30
 #define DEBUG_TELNET_PORT 23
 #define ROLE_SEND_RETRY_MS 2000
-#define BEETLE_OTA_TIMEOUT_MS 10000
+#define BEETLE_OTA_TIMEOUT_MS 180000
 #define IR_SEND_INTERVAL_MS 100 // 태그 시 초당 더 많은 프레임을 방출해 수신측이 놓치지 않도록
 #define BEETLE_RX_BUFFER_SIZE 32
 #define BOOT_SERIAL_BAUD 115200
