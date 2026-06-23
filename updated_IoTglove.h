@@ -14,6 +14,7 @@ int hack_count = 0;
 #define HACK_THRESHOLD 3
 bool revival;
 bool motor_on;
+int vibe_level = 0; // 서버 vibe 값(0=끔, 1~5=진동 패턴 레벨)
 bool pending_revival_vibration;
 String ir_decode_data;
 char current_hmi_page[20];
@@ -259,11 +260,35 @@ const int MotorResolution = 8;
 #define vibration_mode4 230
 #define vibration_mode5 240
 
-const int vibration_pattern_2[] = {1, 0, 1, 5, 3, 0, 0, 1, 2, 1, 0, 0};                   // BPM 125
+// 진동 패턴 5단계 — 모두 L3와 같은 심장박동(lub-dub) 모티프.
+// 구조: {주박동(상승→강타) | 휴식 | 약한 2차 박동 | 휴식}. 값은 세기 레벨(0~5, Intensity()로 PWM 변환).
+// 레벨↑ = BPM↑(step_ms↓) + 세기↑ → "위험할수록 심장이 빠르고 세게 뛰는" 체감. L3가 BPM 125 기준점.
+const int vibration_pattern_1[] = {1, 0, 1, 3, 2, 0, 0, 0, 1, 0, 0, 0};       // BPM  75 약하고 느린 두근
+const int vibration_pattern_2[] = {1, 0, 1, 4, 2, 0, 0, 1, 1, 1, 0, 0};       // BPM 100 차분한 두근
+const int vibration_pattern_3[] = {1, 0, 1, 5, 3, 0, 0, 1, 2, 1, 0, 0};       // BPM 125 또렷한 두근(기존)
+const int vibration_pattern_4[] = {2, 0, 2, 5, 4, 0, 0, 1, 3, 1, 0, 0};       // BPM 150 강해진 두근
+const int vibration_pattern_5[] = {3, 0, 3, 5, 5, 0, 0, 2, 4, 2, 0, 0};       // BPM 175 쿵쿵 몰아치는 심장
+
+struct VibePattern
+{
+    const int *pattern;
+    int len;
+    int step_ms;
+};
+
+const VibePattern VIBE_PATTERNS[] = {
+    {vibration_pattern_1, (int)ARRAYINDEX(vibration_pattern_1), 200}, // L1 BPM  75
+    {vibration_pattern_2, (int)ARRAYINDEX(vibration_pattern_2), 150}, // L2 BPM 100
+    {vibration_pattern_3, (int)ARRAYINDEX(vibration_pattern_3), 120}, // L3 BPM 125
+    {vibration_pattern_4, (int)ARRAYINDEX(vibration_pattern_4), 100}, // L4 BPM 150
+    {vibration_pattern_5, (int)ARRAYINDEX(vibration_pattern_5), 86},  // L5 BPM 175
+};
+#define VIBE_PATTERN_COUNT ((int)(sizeof(VIBE_PATTERNS) / sizeof(VibePattern)))
+#define REVIVAL_VIBE_LEVEL 3 // 부활 대기 진동은 기존 심장박동(L3)으로 재생
 
 void MotorInit();
 int Intensity(int intensity);
-void MotorOn(const int *vibration_pattern, int len);
+void MotorStep(int level); // level 1~VIBE_PATTERN_COUNT 패턴을 비블로킹으로 한 스텝씩 재생
 void MotorStop();
 
 //=============================== Battery ===============================

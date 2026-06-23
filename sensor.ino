@@ -310,23 +310,45 @@ int Intensity(int intensity)
   return 0;
 }
 
-void MotorOn(const int *vibration_pattern, int len)
+// 진동 패턴을 비블로킹으로 한 스텝씩 재생한다(루프를 막지 않음).
+// step_ms 간격으로 다음 세기로 넘어가며, 레벨이 바뀌면 패턴을 처음부터 다시 시작한다.
+void MotorStep(int level)
 {
-  static int repeat = 0;
-  if (repeat < len - 1)
+  if (level < 1 || level > VIBE_PATTERN_COUNT)
   {
-    repeat++;
+    MotorStop();
+    return;
   }
-  else
+
+  const VibePattern *vp = &VIBE_PATTERNS[level - 1];
+
+  static int active_level = 0;
+  static int step_index = 0;
+  static unsigned long last_step_ms = 0;
+  unsigned long now = millis();
+
+  if (level != active_level) // 레벨 전환 시 패턴 리셋
   {
-    repeat = 0;
-  } // 진동 패턴 인덱스를 한칸씩 증가 시킴
-  // Serial.print("repeat : "); Serial.println(repeat);
-  // Serial.print("repeat[] : "); Serial.println(vibration_pattern[repeat]);
-  ledcWrite(MOTOR_PWMA_PIN, Intensity(vibration_pattern[repeat]));
-  delay(20);
+    active_level = level;
+    step_index = 0;
+    last_step_ms = 0;
+  }
+
+  if (last_step_ms != 0 && now - last_step_ms < (unsigned long)vp->step_ms)
+  {
+    return; // 아직 다음 스텝 시간이 아님
+  }
+  last_step_ms = now;
+
+  ledcWrite(MOTOR_PWMA_PIN, Intensity(vp->pattern[step_index]));
   digitalWrite(MOTOR_INA1_PIN, HIGH);
   digitalWrite(MOTOR_INA2_PIN, LOW);
+
+  step_index++;
+  if (step_index >= vp->len)
+  {
+    step_index = 0;
+  }
 }
 
 void MotorStop()

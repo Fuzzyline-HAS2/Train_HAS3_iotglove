@@ -330,12 +330,22 @@ void UpdateVibration()
         page_change_vibration_active = false;
     }
 
-    bool should_vibrate = game_state == activate &&
-                          IsPlayerRole(CurrentRole()) &&
-                          ((motor_on && !location_vibe_muted) || pending_revival_vibration);
-    if (should_vibrate)
+    int level = 0;
+    if (game_state == activate && IsPlayerRole(CurrentRole()))
     {
-        MotorOn(vibration_pattern_2, ARRAYINDEX(vibration_pattern_2));
+        if (motor_on && !location_vibe_muted && vibe_level >= 1)
+        {
+            level = vibe_level > VIBE_PATTERN_COUNT ? VIBE_PATTERN_COUNT : vibe_level;
+        }
+        else if (pending_revival_vibration)
+        {
+            level = REVIVAL_VIBE_LEVEL;
+        }
+    }
+
+    if (level >= 1)
+    {
+        MotorStep(level);
     }
     else
     {
@@ -346,6 +356,7 @@ void UpdateVibration()
 void ResetActivateSideEffects(bool clear_revival_help_records)
 {
     motor_on = false;
+    vibe_level = 0;
     location_vibe_muted = false;
     SetMotorIntensity(0);
     StopNeopixelTimer();
@@ -662,12 +673,15 @@ void HandleVibeChange()
         return;
     }
 
-    if ((int)my["vibe"] == 2)
+    int level = (int)my["vibe"]; // 0=끔, 1~5=진동 패턴 레벨
+    if (level >= 1)
     {
+        vibe_level = level > VIBE_PATTERN_COUNT ? VIBE_PATTERN_COUNT : level;
         motor_on = true;
     }
-    else if ((int)my["vibe"] == 0)
+    else
     {
+        vibe_level = 0;
         motor_on = false;
         MotorStop();
     }
