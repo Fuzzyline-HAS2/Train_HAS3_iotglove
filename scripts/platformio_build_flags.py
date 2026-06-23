@@ -28,7 +28,7 @@ define_string(
     "BUILD_LIBRARY_SUMMARY",
     "pioarduino/platform-espressif32#55.03.38,"
     "arduino-esp32@3.3.8,"
-    "HAS2_Wifi@v1.0.0,"
+    "HAS2_Wifi@vendor,"
     "Adafruit_NeoPixel@1.15.5,"
     "ArduinoJson@7.4.3,"
     "IRremoteESP8266@2.9.0,"

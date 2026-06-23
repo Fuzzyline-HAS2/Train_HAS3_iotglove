@@ -40,13 +40,11 @@ jobs:
           HMAC_SECRET_VALUE: ${{ secrets.HMAC_SECRET }}
           GLOVE_WIFI_SSID_VALUE: ${{ secrets.GLOVE_WIFI_SSID }}
           GLOVE_WIFI_PASS_VALUE: ${{ secrets.GLOVE_WIFI_PASS }}
-          HAS2_LIB_TOKEN_VALUE: ${{ secrets.HAS2_LIB_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${HMAC_SECRET_VALUE}" || (echo "Missing HMAC_SECRET" && exit 1)
           test -n "${GLOVE_WIFI_SSID_VALUE}" || (echo "Missing GLOVE_WIFI_SSID" && exit 1)
           test -n "${GLOVE_WIFI_PASS_VALUE}" || (echo "Missing GLOVE_WIFI_PASS" && exit 1)
-          test -n "${HAS2_LIB_TOKEN_VALUE}" || (echo "Missing HAS2_LIB_TOKEN" && exit 1)
 
       - name: Generate secrets.h
         shell: bash
@@ -103,12 +101,9 @@ jobs:
 
       - name: Build firmware
         shell: bash
-        env:
-          HAS2_LIB_TOKEN: ${{ secrets.HAS2_LIB_TOKEN }}
         run: |
           set -euo pipefail
           docker run --rm \
-            -e HAS2_LIB_TOKEN="${HAS2_LIB_TOKEN}" \
             -e GITHUB_SHA="${GITHUB_SHA}" \
             -e GITHUB_REF_NAME="${GITHUB_REF_NAME}" \
             -e GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
@@ -118,7 +113,6 @@ jobs:
             iotglove-builder \
             /bin/sh -lc 'set -eu
               git config --global --add safe.directory /work
-              git config --global url."https://x-access-token:${HAS2_LIB_TOKEN}@github.com/Fuzzyline-HAS2/".insteadOf "https://github.com/Fuzzyline-HAS2/"
               pio run -e ttgo-t8-v171 -e beetle-c3-location
             '
 

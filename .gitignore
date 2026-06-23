@@ -3,6 +3,7 @@ scripts/secrets.py
 
 /ArduinoBuild/
 /build/
+/scripts/build/
 /dist/
 /logs/
 /.pio/
