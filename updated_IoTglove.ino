@@ -177,6 +177,14 @@ void UpdateVersionReport()
     return;
   }
 
+  // 게임 진행(activate) 중에는 ActivateFunc/DisplayCheck가 디스플레이 시리얼
+  // (UART2)을 점유하므로, 버전 읽기가 끼어들면 응답 바이트가 유실되거나
+  // 블로킹/버퍼 flush로 터치·페이지 명령에 간섭한다. standby로 돌아갈 때까지 미룬다.
+  if (game_state == activate)
+  {
+    return;
+  }
+
   unsigned long now = millis();
   if (version_report_next_ms != 0 && now < version_report_next_ms)
   {
@@ -218,9 +226,12 @@ void IotGloveInit()
 {
   NextionTftUploadInit();
   MySerial1.begin(115200, SERIAL_8N1, SERIAL1_RX_PIN, SERIAL1_TX_PIN); // Beetle과 UART 통신 연결 세팅
+  // 디스플레이 핀(39/33)을 먼저 설정해야 한다. nexInit() 내부의 Serial2.begin(9600)은
+  // 핀 인자가 없어 "이미 설정된 UART2 핀을 재사용"하므로, 이 begin이 선행되어야
+  // nexInit의 bkcmd=1 / page 0 초기화 명령이 실제 디스플레이(39/33)로 전달된다.
+  MySerial2.begin(9600, SERIAL_8N1, SERIAL2_RX_PIN, SERIAL2_TX_PIN);
   nexInit();                                                           // 디스플레이 세팅
   MySerial1.setTimeout(20);
-  MySerial2.begin(9600, SERIAL_8N1, SERIAL2_RX_PIN, SERIAL2_TX_PIN);
   // has2wifi.Setup();     // 사무실 와이파이
   // has2wifi.Setup("city"); // 쌈지 시티 와이파이
   WifiForceLowRateInit();                 // 약신호 링크 안정화 (WiFi.begin 전)

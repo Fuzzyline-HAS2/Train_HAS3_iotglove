@@ -106,17 +106,10 @@ bool ReadHmiNumber(const char *target, uint32_t *value, uint32_t timeout_ms)
 
 bool ReadNextionVersion(uint32_t *version)
 {
-    if (ReadHmiNumber("pgSetting.vVersion.val", version, 300))
-    {
-        return true;
-    }
-
-    sendCommand("page pgSetting");
-    delay(150);
-    bool ok = ReadHmiNumber("pgSetting.vVersion.val", version, 500);
-    sendCommand("page 0");
-    delay(50);
-    return ok;
+    // vVersion은 글로벌 변수라 어느 페이지에서든 읽힘.
+    // 페이지를 이동(page pgSetting -> page 0)하면 게임 화면이 검은 page 0으로
+    // 튀므로 이동 없이 직접 읽기만 수행한다. 실패 시 UpdateVersionReport가 재시도.
+    return ReadHmiNumber("pgSetting.vVersion.val", version, 500);
 }
 
 void DisplaySet()

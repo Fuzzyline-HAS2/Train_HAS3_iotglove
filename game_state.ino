@@ -749,6 +749,7 @@ void HandleDeviceStateChange()
     else if (TextEquals(device_state, "player_win"))
     {
         MotorStop();
+        sendCommand("sleep=0"); // 슬립 상태였어도 결과 화면이 검게 남지 않도록 깨운다
         if (IsTaggerRole(role))
         {
             PageChange("pgTagLose");
@@ -761,6 +762,7 @@ void HandleDeviceStateChange()
     else if (TextEquals(device_state, "player_lose"))
     {
         MotorStop();
+        sendCommand("sleep=0"); // 슬립 상태였어도 결과 화면이 검게 남지 않도록 깨운다
         if (IsTaggerRole(role))
         {
             PageChange("pgTagWin");
