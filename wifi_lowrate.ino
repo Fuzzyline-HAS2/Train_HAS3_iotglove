@@ -1,4 +1,4 @@
-#include "updated_IoTglove.h"
+﻿#include "Train_HAS3_iotglove.h"
 
 /**
  * @brief 약신호(-80dBm 이하) 링크 안정화 설정. WiFi.begin 전에 호출.
