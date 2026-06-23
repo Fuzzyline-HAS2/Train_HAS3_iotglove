@@ -3,6 +3,9 @@
 void InitBeetleOta()
 {
   beetle_ota.setLogStream(Serial);
+  beetle_ota.setOnSuccess([]() {
+    MySerial1.print("beetle_ota_done\n");
+  });
   beetle_ota.setOnSkip([]() {
     MySerial1.print("beetle_ota_skip\n");
   });

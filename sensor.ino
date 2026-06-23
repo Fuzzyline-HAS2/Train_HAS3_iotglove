@@ -514,6 +514,11 @@ void ProcessBeetleLine(const char *line, String &loop_location_candidate)
     FinishBeetleOtaWaitAndRunTtgoOta("beetle_ota_error");
     return;
   }
+  if (frame == "beetle_ota_done")
+  {
+    DebugPrintln("[TTGO] beetle OTA success");
+    return;
+  }
 
   if (!frame.startsWith("ROOM:"))
   {
