@@ -222,6 +222,30 @@ void UpdateVersionReport()
 /**
  * @brief IoT Glove Intialize
  */
+const char *GetTrainRole()
+{
+  String mac = WiFi.macAddress();
+  if (mac == "2C:BC:BB:A8:4F:40") return "tagger";  // G9P1
+  return "player";                                    // G9P2, G9P3
+}
+
+void TrainModeInit()
+{
+  const char *role = GetTrainRole();
+  if (strcmp(role, "tagger") == 0)
+  {
+    lightColor(purple);
+    sendCommand("page pgTagEmpty");
+    snprintf(current_hmi_page, sizeof(current_hmi_page), "pgTagEmpty");
+  }
+  else
+  {
+    lightColor(green);
+    sendCommand("page pgSurvivor");
+    snprintf(current_hmi_page, sizeof(current_hmi_page), "pgSurvivor");
+  }
+}
+
 void IotGloveInit()
 {
   NextionTftUploadInit();
@@ -261,6 +285,7 @@ void IotGloveInit()
   StartVersionReport();
   UpdateVersionReport();
   DataChange();
+  TrainModeInit();
 }
 
 /**
