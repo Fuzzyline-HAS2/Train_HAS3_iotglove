@@ -170,7 +170,6 @@ void DisplayCheck()
     char page[32];
     if (ReadNextionPageName(page, sizeof(page)))
     {
-        ApplyNeoPixelForPage(page);
         snprintf(current_hmi_page, sizeof(current_hmi_page), "%s", page);
     }
 }
@@ -181,6 +180,7 @@ void PageChange(const char *page)
     char cmd[32];
     snprintf(cmd, sizeof(cmd), "page %s", page);
     sendCommand(cmd);
+    ApplyNeoPixelForPage(page);
     if (page_changed)
     {
         StartPageChangeVibration();
