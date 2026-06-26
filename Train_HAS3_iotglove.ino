@@ -262,6 +262,7 @@ void IotGloveInit()
   StartVersionReport();
   UpdateVersionReport();
   DataChange();
+  sendCommand("sleep=0");
 }
 
 /**
