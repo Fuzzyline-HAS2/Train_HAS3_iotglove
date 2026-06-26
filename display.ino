@@ -120,11 +120,37 @@ void DisplaySet()
     SendHmiValue("pgGhost.vReviveTimeMax", JsonIntOrDefault("revival_time", DEFAULT_REVIVAL_TIME_SEC));
 }
 
+static char nextion_color_buf[16];
+static uint8_t nextion_color_buf_len = 0;
+
+static void ApplyNextionColor(const char *name)
+{
+    if      (strcmp(name, "red")    == 0) lightColor(red);
+    else if (strcmp(name, "blue")   == 0) lightColor(blue);
+    else if (strcmp(name, "green")  == 0) lightColor(green);
+    else if (strcmp(name, "purple") == 0) lightColor(purple);
+}
+
 void DisplayCheck()
 {
     while (MySerial2.available() > 0)
     {
-        MySerial2.read();
+        uint8_t b = (uint8_t)MySerial2.read();
+        if (b == 0x0A)
+        {
+            nextion_color_buf[nextion_color_buf_len] = '\0';
+            if (nextion_color_buf_len > 0)
+                ApplyNextionColor(nextion_color_buf);
+            nextion_color_buf_len = 0;
+        }
+        else if (b >= 'a' && b <= 'z' && nextion_color_buf_len < sizeof(nextion_color_buf) - 1)
+        {
+            nextion_color_buf[nextion_color_buf_len++] = (char)b;
+        }
+        else
+        {
+            nextion_color_buf_len = 0;
+        }
     }
 }
 
