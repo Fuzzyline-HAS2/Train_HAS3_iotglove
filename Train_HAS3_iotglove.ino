@@ -258,11 +258,16 @@ void IotGloveInit()
   SensorInit(); // IoT Glove 사용 센서, 모듈 세팅
   TimerInit();  // 타이머 세팅
   has2wifi.Loop();
-  InitTrainRoleByMac();
+  const char *train_role = InitTrainRoleByMac();
   StartVersionReport();
   UpdateVersionReport();
   DataChange();
   sendCommand("sleep=0");
+  if (train_role != nullptr)
+  {
+    my["role"] = train_role;
+    ActivateRunOnce();
+  }
 }
 
 /**
