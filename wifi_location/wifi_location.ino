@@ -26,9 +26,9 @@ unsigned long last_ble_eval_ms = 0;
 bool ble_scan_segment_done = false;
 
 SecureOTA beetle_ota(
-    "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/beetle-update.bin",
-    "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/version.txt",
-    "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/beetle-update.sig",
+    "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/latest/download/beetle-update.bin",
+    "https://raw.githubusercontent.com/Fuzzyline-HAS2/Train_HAS3_iotglove/main/version.txt",
+    "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/latest/download/beetle-update.sig",
     HMAC_SECRET,
     FIRMWARE_VERSION_CODE);
 

@@ -168,15 +168,15 @@ HAS2_Wifi has2wifi("http://172.30.1.43");
 #define OTA_MANIFEST_URL ""
 #endif
 
-#define OTA_RELEASE_BASE_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download"
-#define OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/latest/download/manifest-prd.json"
-#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/dev-latest/manifest-dev.json"
-#define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/updated_IoTglove/releases/download/rc-latest/manifest-rc.json"
+#define OTA_RELEASE_BASE_URL "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/download"
+#define OTA_PRD_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/latest/download/manifest-prd.json"
+#define OTA_DEV_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/download/dev-latest/manifest-dev.json"
+#define OTA_RC_MANIFEST_URL "https://github.com/Fuzzyline-HAS2/Train_HAS3_iotglove/releases/download/rc-latest/manifest-rc.json"
 
 SecureOTA ota(
-  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.bin",
-  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/version.txt",
-  "https://raw.githubusercontent.com/Fuzzyline-HAS2/updated_IoTglove/main/update.sig",
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/Train_HAS3_iotglove/main/update.bin",
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/Train_HAS3_iotglove/main/version.txt",
+  "https://raw.githubusercontent.com/Fuzzyline-HAS2/Train_HAS3_iotglove/main/update.sig",
   HMAC_SECRET,
   FIRMWARE_VERSION_CODE
 );
