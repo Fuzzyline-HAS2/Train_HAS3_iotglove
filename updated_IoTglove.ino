@@ -258,6 +258,7 @@ void IotGloveInit()
   SensorInit(); // IoT Glove 사용 센서, 모듈 세팅
   TimerInit();  // 타이머 세팅
   has2wifi.Loop();
+  InitTrainRoleByMac();
   StartVersionReport();
   UpdateVersionReport();
   DataChange();

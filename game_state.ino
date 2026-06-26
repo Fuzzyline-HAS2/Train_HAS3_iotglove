@@ -97,6 +97,19 @@ void SendRoleRequest(const char *role)
     has2wifi.Send((String)(const char *)my["device_name"], "role", role);
 }
 
+void InitTrainRoleByMac()
+{
+    String mac = WiFi.macAddress();
+    const char *role = nullptr;
+    if      (mac == "2C:BC:BB:A8:4F:40") role = "tagger"; // G9P1
+    else if (mac == "2C:BC:BB:A7:BF:B8") role = "player"; // G9P2
+    else if (mac == "2C:BC:BB:A7:BE:9C") role = "player"; // G9P3
+    if (role == nullptr) return;
+    Serial.print("[BOOT] mac role init: ");
+    Serial.println(role);
+    SendRoleRequest(role);
+}
+
 bool IsValidOtaChannel(const String &channel)
 {
     return channel == "dev" || channel == "rc" || channel == "prd";

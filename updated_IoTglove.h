@@ -186,6 +186,7 @@ void ReadyFunc();
 void ActivateFunc();
 void ActivateRunOnce();
 void DataChange();
+void InitTrainRoleByMac();
 bool TextEquals(const char *value, const char *expected);
 bool IsPlayerRole(const char *role);
 bool IsTaggerRole(const char *role);
